@@ -1,0 +1,1765 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>昆虫对决 · 操控版 · 蚁后召唤</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-touch-callout: none; }
+        body {
+            font-family: "Microsoft YaHei", sans-serif;
+            background: linear-gradient(135deg, #8B4513 0%, #A0522D 50%, #CD853F 100%);
+            min-height: 100vh;
+            overflow: hidden;
+            position: relative;
+            touch-action: none;
+        }
+        .forest-bg {
+            position: fixed; inset: 0;
+            background: radial-gradient(circle at 20% 80%, rgba(101,67,33,0.8) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 20%, rgba(139,90,43,0.6) 0%, transparent 40%),
+                        radial-gradient(circle at 40% 40%, rgba(160,82,45,0.4) 0%, transparent 30%);
+            pointer-events: none; z-index: 0;
+        }
+        #loadingScreen {
+            position: fixed; inset: 0;
+            background: #2d1b0e;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.8s;
+            color: #FFF8DC;
+            font-size: 1.5em;
+        }
+        #loadingScreen.hidden { opacity: 0; pointer-events: none; }
+        .loader {
+            width: 80px; height: 80px;
+            border: 8px solid rgba(255,248,220,0.2);
+            border-top: 8px solid #FFD700;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 30px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .loading-text { letter-spacing: 4px; text-shadow: 0 0 20px rgba(255,215,0,0.3); }
+
+        .title {
+            position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+            color: #FFF8DC; font-size: 1.7em; text-shadow: 2px 2px 8px rgba(0,0,0,0.7);
+            z-index: 100; pointer-events: none; letter-spacing: 2px;
+        }
+        .title small { font-size: 0.5em; opacity: 0.8; }
+
+        #stopControlBtn {
+            position: fixed; top: 70px; left: 16px;
+            z-index: 250;
+            background: rgba(255,50,50,0.85);
+            color: #fff;
+            border: 2px solid #ff8888;
+            border-radius: 30px;
+            padding: 6px 16px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 2px 12px rgba(255,0,0,0.4);
+            display: none;
+            transition: 0.2s;
+            pointer-events: auto;
+        }
+        #stopControlBtn:hover { background: rgba(255,0,0,0.9); transform: scale(1.05); }
+        #stopControlBtn:active { transform: scale(0.92); }
+
+        .settings-btn,
+        .list-btn {
+            position: fixed;
+            top: 16px;
+            width: 44px; height: 44px;
+            background: rgba(255,248,220,0.25); border: 2px solid rgba(255,248,220,0.5);
+            border-radius: 50%; color: #FFF8DC; font-size: 20px;
+            cursor: pointer; z-index: 200;
+            display: flex; align-items: center; justify-content: center;
+            transition: 0.3s; backdrop-filter: blur(4px);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+        }
+        .settings-btn { right: 18px; }
+        .list-btn { right: 70px; }
+        .settings-btn:hover, .list-btn:hover { background: rgba(255,248,220,0.4); transform: rotate(60deg); }
+        .settings-btn:active, .list-btn:active { transform: scale(0.9) rotate(60deg); }
+
+        .insect {
+            position: absolute; cursor: pointer; z-index: 10;
+            transition: filter 0.3s, opacity 0.3s; touch-action: none;
+        }
+        .insect img {
+            width: 100%; height: 100%; object-fit: contain;
+            filter: drop-shadow(2px 2px 6px rgba(0,0,0,0.4));
+            pointer-events: none; transition: filter 0.3s;
+        }
+        .insect .name-tag {
+            position: absolute; top: -28px; left: 50%; transform: translateX(-50%);
+            background: rgba(255,255,255,0.92); color: #5D4037;
+            padding: 2px 12px; border-radius: 12px; font-size: 12px; font-weight: bold;
+            white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 20;
+        }
+        .insect:hover .name-tag { opacity: 1; }
+        .hp-bar-wrap {
+            position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%);
+            width: 70%; height: 6px; background: rgba(0,0,0,0.5);
+            border-radius: 3px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+            pointer-events: none; z-index: 15;
+        }
+        .hp-bar-fill {
+            height: 100%; width: 100%; border-radius: 3px;
+            transition: width 0.3s ease;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+        }
+        .hp-bar-fill.low { background: linear-gradient(90deg, #f44336, #FF5722); }
+        .hp-bar-fill.mid { background: linear-gradient(90deg, #FF9800, #FFC107); }
+
+        .insect.selected { z-index: 25; }
+        .insect.selected::after {
+            content: ''; position: absolute; inset: -8px;
+            border: 3px solid #FFD700; border-radius: 50%;
+            box-shadow: 0 0 20px rgba(255,215,0,0.6), inset 0 0 20px rgba(255,215,0,0.2);
+            animation: pulse-gold 1s ease-in-out infinite; pointer-events: none;
+        }
+        @keyframes pulse-gold { 0%,100% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.05); opacity: 1; } }
+
+        .insect.dead {
+            filter: grayscale(1) brightness(0.6); cursor: default; opacity: 0.5;
+        }
+        .insect.dead .name-tag { opacity: 0.6 !important; background: rgba(100,100,100,0.9); color: #ddd; }
+        .insect.dead .hp-bar-fill { background: #666 !important; }
+        .insect.dead .dead-badge { display: block !important; }
+        .dead-badge {
+            display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+            color: #ff3333; font-size: 18px; font-weight: bold;
+            text-shadow: 0 0 12px rgba(255,0,0,0.8), 0 0 24px rgba(255,0,0,0.4);
+            pointer-events: none; z-index: 30;
+            background: rgba(0,0,0,0.5); padding: 4px 12px; border-radius: 8px;
+            border: 2px solid #ff3333;
+        }
+        .revive-timer {
+            position: absolute; bottom: -28px; left: 50%; transform: translateX(-50%);
+            color: #ffcc02; font-size: 12px; font-weight: 700;
+            text-shadow: 0 0 10px rgba(255,204,2,0.5);
+            pointer-events: none; z-index: 16;
+            background: rgba(0,0,0,0.5); padding: 1px 8px; border-radius: 8px;
+            opacity: 0; transition: opacity 0.3s; white-space: nowrap;
+        }
+        .insect.dead .revive-timer { opacity: 1; }
+
+        .insect.hit { animation: hit-shake 0.4s ease; }
+        @keyframes hit-shake {
+            0%,100% { transform: translateX(0) rotate(0deg); }
+            20% { transform: translateX(-8px) rotate(-5deg); }
+            40% { transform: translateX(8px) rotate(5deg); }
+            60% { transform: translateX(-5px) rotate(-3deg); }
+            80% { transform: translateX(5px) rotate(3deg); }
+        }
+        .insect.hit img { filter: drop-shadow(0 0 20px rgba(255,0,0,0.8)) brightness(1.3); }
+        .insect.attacking img { animation: attack-flash 0.3s ease 2; }
+        @keyframes attack-flash {
+            0%,100% { filter: drop-shadow(0 0 8px rgba(255,215,0,0.6)) brightness(1); }
+            50% { filter: drop-shadow(0 0 30px rgba(255,215,0,1)) brightness(1.6); }
+        }
+        .insect.revive { animation: revive-pop 0.8s ease; }
+        @keyframes revive-pop {
+            0% { transform: scale(0.2); opacity: 0; filter: brightness(2) hue-rotate(90deg); }
+            50% { transform: scale(1.3); opacity: 1; filter: brightness(1.5) hue-rotate(0deg); }
+            70% { transform: scale(0.9); }
+            100% { transform: scale(1); opacity: 1; filter: brightness(1) hue-rotate(0deg); }
+        }
+
+        .click-effect {
+            position: absolute; width: 100px; height: 100px;
+            border: 3px solid #FFD700; border-radius: 50%;
+            pointer-events: none; z-index: 5;
+            animation: ripple 0.6s ease-out forwards;
+        }
+        @keyframes ripple { 0% { transform: scale(0.3); opacity: 1; } 100% { transform: scale(2.5); opacity: 0; } }
+
+        .dmg-float {
+            position: absolute; font-size: 28px; font-weight: 900;
+            color: #ff1744; text-shadow: 0 0 10px rgba(255,23,68,0.8), 0 2px 8px rgba(0,0,0,0.5);
+            pointer-events: none; z-index: 50;
+            animation: float-up 1s ease-out forwards;
+        }
+        @keyframes float-up { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-80px) scale(1.4); } }
+
+        .projectile {
+            position: absolute; width: 20px; height: 20px;
+            border-radius: 50%; background: radial-gradient(#7fff00, #00aa00);
+            box-shadow: 0 0 20px #7fff00; pointer-events: none; z-index: 40;
+            transition: none;
+        }
+        .projectile.poison { background: radial-gradient(#ab47bc, #4a148c); box-shadow: 0 0 25px #ab47bc; }
+
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(6px); z-index: 500;
+            display: none; align-items: center; justify-content: center;
+            animation: fade-in 0.25s ease;
+        }
+        .modal-overlay.active { display: flex; }
+        @keyframes fade-in { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
+        .modal-panel {
+            background: linear-gradient(145deg, #f5efe6, #e8ddd0);
+            border-radius: 28px; padding: 32px 36px;
+            max-width: 420px; width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+            position: relative; border: 2px solid rgba(255,248,220,0.3);
+            max-height: 90vh; overflow-y: auto;
+        }
+        .modal-panel h2 { text-align: center; color: #4E342E; font-size: 22px; margin-bottom: 6px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .modal-panel h2 .emoji-big { font-size: 32px; }
+        .modal-panel .sub { text-align: center; color: #795548; font-size: 14px; margin-bottom: 18px; opacity: 0.7; }
+        .modal-close {
+            position: absolute; top: 12px; right: 16px;
+            font-size: 28px; color: #795548; cursor: pointer;
+            background: none; border: none; transition: 0.2s;
+            width: 40px; height: 40px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .modal-close:hover { background: rgba(0,0,0,0.08); transform: rotate(90deg); }
+        .modal-field { margin-bottom: 18px; }
+        .modal-field label { display: block; font-weight: 600; color: #4E342E; font-size: 14px; margin-bottom: 4px; }
+        .size-group { display: flex; gap: 8px; flex-wrap: wrap; }
+        .size-btn {
+            padding: 6px 20px; border-radius: 20px; border: 2px solid #A1887F;
+            background: rgba(255,255,255,0.5); cursor: pointer; font-weight: 600;
+            color: #4E342E; transition: 0.25s; font-size: 14px;
+        }
+        .size-btn:hover { background: rgba(161,136,127,0.2); }
+        .size-btn.active { background: #6D4C41; border-color: #4E342E; color: #fff; box-shadow: 0 2px 12px rgba(109,76,65,0.4); }
+        .stat-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.06); }
+        .stat-row .label { color: #5D4037; font-weight: 500; }
+        .stat-row .value { font-weight: 700; color: #3E2723; }
+        .modal-footer { margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end; }
+        .modal-footer button { padding: 10px 28px; border-radius: 24px; border: none; font-weight: 600; font-size: 15px; cursor: pointer; transition: 0.2s; }
+        .modal-footer .btn-primary { background: #6D4C41; color: #fff; }
+        .modal-footer .btn-primary:hover { background: #4E342E; transform: scale(1.02); }
+        .modal-footer .btn-secondary { background: #D7CCC8; color: #4E342E; }
+        .modal-footer .btn-secondary:hover { background: #BCAAA4; }
+
+        .author-section {
+            display: flex; align-items: center; gap: 14px;
+            background: rgba(255,255,255,0.3);
+            padding: 12px 16px;
+            border-radius: 16px;
+            margin-top: 16px;
+            border: 1px solid rgba(161,136,127,0.3);
+        }
+        .author-section img {
+            width: 44px; height: 44px;
+            border-radius: 50%;
+            border: 2px solid #6D4C41;
+            object-fit: cover;
+        }
+        .author-section .info {
+            display: flex; flex-direction: column;
+        }
+        .author-section .info .name {
+            font-weight: 700; color: #4E342E; font-size: 16px;
+        }
+        .author-section .info .role {
+            font-size: 12px; color: #795548; opacity: 0.7;
+        }
+
+        .settings-panel .toggle-row, .list-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(0,0,0,0.06); }
+        .settings-panel .toggle-row .label, .list-row .label { font-weight: 600; color: #4E342E; font-size: 16px; }
+        .toggle-switch {
+            position: relative; width: 52px; height: 28px;
+            background: #BDBDBD; border-radius: 14px;
+            cursor: pointer; transition: 0.3s; flex-shrink: 0;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.15);
+        }
+        .toggle-switch.active { background: #6D4C41; }
+        .toggle-switch .knob {
+            position: absolute; top: 3px; left: 3px;
+            width: 22px; height: 22px; background: #fff; border-radius: 50%;
+            transition: 0.3s; box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+        }
+        .toggle-switch.active .knob { left: 27px; }
+
+        .battle-log {
+            position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+            color: #FFF8DC; padding: 8px 20px; border-radius: 16px;
+            font-size: 14px; z-index: 60; max-width: 80%;
+            text-align: center; pointer-events: none;
+            transition: opacity 0.4s; opacity: 0;
+            border: 1px solid rgba(255,248,220,0.15);
+        }
+        .battle-log.show { opacity: 1; }
+
+        #controls {
+            position: fixed; bottom: 30px; left: 0; right: 0;
+            display: none;
+            justify-content: space-between; align-items: flex-end;
+            padding: 0 20px; z-index: 300;
+            pointer-events: none;
+        }
+        #controls.active { display: flex; }
+
+        #joystick-area {
+            width: 130px; height: 130px;
+            background: rgba(0,0,0,0.35); border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.3);
+            position: relative; pointer-events: auto;
+            touch-action: none;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+            flex-shrink: 0;
+        }
+        #joystick-knob {
+            width: 50px; height: 50px;
+            background: radial-gradient(circle, #ffd700, #b8860b);
+            border-radius: 50%;
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 20px rgba(255,215,0,0.5);
+            pointer-events: none;
+            transition: none;
+        }
+
+        #attack-buttons {
+            display: flex; gap: 14px;
+            pointer-events: auto;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .ctrl-btn {
+            width: 70px; height: 70px;
+            border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.6);
+            background: rgba(200,50,50,0.7);
+            color: #fff; font-size: 14px; font-weight: bold;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            cursor: pointer; touch-action: manipulation;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+            transition: 0.1s;
+            line-height: 1.2;
+        }
+        .ctrl-btn:active { transform: scale(0.88); background: rgba(255,80,80,0.9); }
+        .ctrl-btn .sub { font-size: 10px; opacity: 0.8; font-weight: normal; }
+        .ctrl-btn.remote { background: rgba(50,180,50,0.8); }
+        .ctrl-btn.remote:active { background: rgba(50,255,50,0.9); }
+        .ctrl-btn.poison { background: rgba(120,40,180,0.8); }
+        .ctrl-btn.poison:active { background: rgba(180,60,220,0.9); }
+        .ctrl-btn.summon { background: rgba(255,140,0,0.8); }
+        .ctrl-btn.summon:active { background: rgba(255,180,0,0.9); }
+        .ctrl-btn .cooldown {
+            font-size: 11px; color: #ffcc00;
+            background: rgba(0,0,0,0.5); padding: 0 6px; border-radius: 8px;
+            margin-top: 2px;
+        }
+        .ctrl-btn.disabled { opacity: 0.4; pointer-events: none; }
+
+        .list-row .toggle-switch { margin-left: 10px; }
+
+        @media (max-width: 600px) {
+            .title { font-size: 1.2em; top: 10px; }
+            .settings-btn, .list-btn { width: 38px; height: 38px; font-size: 18px; }
+            .list-btn { right: 56px; }
+            .settings-btn { right: 12px; }
+            #stopControlBtn { top: 60px; left: 10px; font-size: 12px; padding: 4px 12px; }
+            .modal-panel { padding: 24px 20px; max-width: 95%; }
+            .modal-panel h2 { font-size: 19px; }
+            .size-btn { padding: 5px 14px; font-size: 13px; }
+            .battle-log { font-size: 12px; padding: 6px 14px; bottom: 50px; max-width: 90%; }
+            .insect .name-tag { font-size: 10px; top: -24px; padding: 1px 8px; }
+            .hp-bar-wrap { height: 4px; bottom: -10px; }
+            .dead-badge { font-size: 14px; padding: 2px 8px; }
+            .dmg-float { font-size: 22px; }
+            #joystick-area { width: 110px; height: 110px; }
+            #joystick-knob { width: 42px; height: 42px; }
+            .ctrl-btn { width: 60px; height: 60px; font-size: 12px; }
+            #controls { padding: 0 10px; bottom: 20px; }
+        }
+        @media (max-width: 400px) {
+            .modal-panel { padding: 18px 14px; }
+            .size-btn { padding: 4px 10px; font-size: 12px; }
+            .stat-row { font-size: 13px; }
+            #joystick-area { width: 90px; height: 90px; }
+            #joystick-knob { width: 36px; height: 36px; }
+            .ctrl-btn { width: 50px; height: 50px; font-size: 11px; }
+            #stopControlBtn { top: 55px; font-size: 11px; padding: 3px 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="loadingScreen">
+        <div class="loader"></div>
+        <div class="loading-text">🌿 昆虫世界加载中...</div>
+    </div>
+
+    <div class="forest-bg"></div>
+    <h1 class="title">🐞 昆虫对决 <small>⚔️</small></h1>
+
+    <button id="stopControlBtn">⏹ 停止操控</button>
+
+    <button class="list-btn" id="listBtn">📋</button>
+    <button class="settings-btn" id="settingsBtn">⚙️</button>
+
+    <div class="battle-log" id="battleLog"></div>
+
+    <!-- 设置模态框 -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal-panel settings-panel">
+            <button class="modal-close" id="settingsClose">✕</button>
+            <h2>⚙️ 设置</h2>
+            <div class="sub">游戏规则开关</div>
+            <div class="toggle-row">
+                <span class="label">⚔️ 允许战斗</span>
+                <div class="toggle-switch active" id="fightToggle"><div class="knob"></div></div>
+            </div>
+            <div class="author-section">
+                <img src="1.png" alt="作者头像">
+                <div class="info">
+                    <span class="name">🐜 Ants</span>
+                    <span class="role">✨ 昆虫世界创造者</span>
+                </div>
+            </div>
+            <div class="modal-footer" style="margin-top:16px;">
+                <button class="btn-primary" id="settingsDone">完成</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 昆虫属性模态框 -->
+    <div class="modal-overlay" id="insectModal">
+        <div class="modal-panel" id="insectModalPanel">
+            <button class="modal-close" id="insectModalClose">✕</button>
+            <h2 id="modalInsectName">🐛 昆虫</h2>
+            <div class="sub" id="modalInsectStatus">状态：存活</div>
+            <div class="modal-field">
+                <label>📏 体型</label>
+                <div class="size-group" id="sizeGroup">
+                    <button class="size-btn" data-size="small">小</button>
+                    <button class="size-btn active" data-size="medium">中</button>
+                    <button class="size-btn" data-size="large">大</button>
+                </div>
+            </div>
+            <div class="modal-field">
+                <label>❤️ 属性</label>
+                <div class="stat-row"><span class="label">血量</span><span class="value" id="modalHp">120 / 120</span></div>
+                <div class="stat-row"><span class="label">⚡ 攻击力</span><span class="value" id="modalAttack">12</span></div>
+                <div class="stat-row"><span class="label">📊 体型倍率</span><span class="value" id="modalSizeMulti">1.0x</span></div>
+            </div>
+            <div class="modal-field">
+                <button class="btn-primary" id="controlToggleBtn" style="width:100%;">🎮 操控此昆虫</button>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="modalCloseBtn">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 昆虫列表模态框 -->
+    <div class="modal-overlay" id="listModal">
+        <div class="modal-panel">
+            <button class="modal-close" id="listClose">✕</button>
+            <h2>📋 昆虫列表</h2>
+            <div class="sub">管理昆虫的显示与隐藏</div>
+            <div id="listContainer"></div>
+            <div class="modal-footer" style="justify-content: space-between;">
+                <button class="btn-secondary" id="listAllOff">全部关闭</button>
+                <button class="btn-primary" id="listAllOn">全部开启</button>
+            </div>
+        </div>
+    </div>
+
+    <audio id="clickSound" preload="auto"><source src="2.mp3" type="audio/mpeg"></audio>
+    <audio id="hitSound" preload="auto"><source src="2.mp3" type="audio/mpeg"></audio>
+    <audio id="dieSound" preload="auto"><source src="2.mp3" type="audio/mpeg"></audio>
+    <audio id="shootSound" preload="auto"><source src="2.mp3" type="audio/mpeg"></audio>
+
+    <div id="controls">
+        <div id="joystick-area">
+            <div id="joystick-knob"></div>
+        </div>
+        <div id="attack-buttons">
+            <button class="ctrl-btn" id="attackMelee">⚔️<br><span class="sub">近战</span></button>
+            <button class="ctrl-btn remote" id="attackRemote" style="display:none;">🌿<br><span class="sub">远程</span></button>
+            <button class="ctrl-btn poison" id="attackPoison" style="display:none;">☠️<br><span class="sub">毒</span><span class="cooldown" id="poisonCooldown"></span></button>
+            <button class="ctrl-btn summon" id="attackSummon" style="display:none;">🐜<br><span class="sub">召唤</span><span class="cooldown" id="summonCooldown"></span></button>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        //  数据
+        // ============================================================
+        const INSECT_DATA = [
+            { name: '独角仙', file: '1.gif', baseHp: 150, baseAttack: 20, special: 'none' },
+            { name: '螳螂', file: '2.gif', baseHp: 100, baseAttack: 28, special: 'none' },
+            { name: '蝎子', file: '3.gif', baseHp: 130, baseAttack: 22, special: 'poison' },
+            { name: '锹甲', file: '4.gif', baseHp: 170, baseAttack: 16, special: 'none' },
+            { name: '象鼻虫', file: '5.gif', baseHp: 90, baseAttack: 12, special: 'none' },
+            { name: '隐翅虫', file: '6.gif', baseHp: 80, baseAttack: 32, special: 'ranged' },
+            { name: '竹节虫', file: '7.gif', baseHp: 110, baseAttack: 14, special: 'none' },
+            { name: '蚁后', file: '8.gif', baseHp: 200, baseAttack: 25, special: 'summon' }
+        ];
+
+        const SIZE_CONFIG = {
+            small: { scale: 0.7, hpMult: 0.7, atkMult: 0.8, size: 56, label: '小' },
+            medium: { scale: 1.0, hpMult: 1.0, atkMult: 1.0, size: 76, label: '中' },
+            large: { scale: 1.3, hpMult: 1.4, atkMult: 1.2, size: 98, label: '大' }
+        };
+
+        const MAX_SUMMONED_ANTS = 10;
+        const SUMMON_COOLDOWN = 20000; // 20秒
+        const ANT_ATTACK_COOLDOWN = 1000; // 小蚂蚁攻击冷却
+
+        const state = {
+            insects: [],
+            selectedId: null,
+            fightEnabled: true,
+            isFighting: false,
+            nextId: 1,
+            battleLogTimeout: null,
+            controlledInsect: null,
+            joystickActive: false,
+            joystickDir: { x: 0, y: 0 },
+            poisonCooldown: 0,
+            poisonCooldownMax: 4000,
+            lastPoisonTime: 0,
+            insectTypeEnabled: {} // 每种昆虫是否启用
+        };
+
+        // 初始化昆虫类型启用状态
+        INSECT_DATA.forEach(d => state.insectTypeEnabled[d.name] = true);
+
+        const MIN_DIST = 90;
+        const REVIVE_SECONDS = 20;
+        const MELEE_RANGE = 65;
+        const RANGED_RANGE = 350;
+
+        const $ = (s) => document.querySelector(s);
+        const $$ = (s) => document.querySelectorAll(s);
+        const body = document.body;
+        const loadingScreen = $('#loadingScreen');
+        const battleLog = $('#battleLog');
+        const settingsBtn = $('#settingsBtn');
+        const settingsModal = $('#settingsModal');
+        const settingsClose = $('#settingsClose');
+        const settingsDone = $('#settingsDone');
+        const fightToggle = $('#fightToggle');
+        const insectModal = $('#insectModal');
+        const insectModalClose = $('#insectModalClose');
+        const modalCloseBtn = $('#modalCloseBtn');
+        const modalInsectName = $('#modalInsectName');
+        const modalInsectStatus = $('#modalInsectStatus');
+        const modalHp = $('#modalHp');
+        const modalAttack = $('#modalAttack');
+        const modalSizeMulti = $('#modalSizeMulti');
+        const sizeGroup = $('#sizeGroup');
+        const controlToggleBtn = $('#controlToggleBtn');
+        const stopControlBtn = $('#stopControlBtn');
+        const clickSound = $('#clickSound');
+        const hitSound = $('#hitSound');
+        const dieSound = $('#dieSound');
+        const shootSound = $('#shootSound');
+        const controlsDiv = $('#controls');
+        const joystickArea = $('#joystick-area');
+        const joystickKnob = $('#joystick-knob');
+        const attackMelee = $('#attackMelee');
+        const attackRemote = $('#attackRemote');
+        const attackPoison = $('#attackPoison');
+        const attackSummon = $('#attackSummon');
+        const poisonCooldown = $('#poisonCooldown');
+        const summonCooldown = $('#summonCooldown');
+        const listBtn = $('#listBtn');
+        const listModal = $('#listModal');
+        const listClose = $('#listClose');
+        const listContainer = $('#listContainer');
+        const listAllOff = $('#listAllOff');
+        const listAllOn = $('#listAllOn');
+
+        function rand(min, max) { return min + Math.random() * (max - min); }
+        function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+        function dist(a, b) { return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2); }
+
+        function getRandomPosition(margin = 90) {
+            const w = window.innerWidth, h = window.innerHeight;
+            return { x: margin + Math.random() * (w - margin * 2 - 80), y: margin + Math.random() * (h - margin * 2 - 80) };
+        }
+        function isOverlapping(pos, others, minD) {
+            for (const o of others) if (dist(pos, o) < minD) return true;
+            return false;
+        }
+        function getUniquePosition(others, minD = MIN_DIST, maxAttempts = 60) {
+            for (let i = 0; i < maxAttempts; i++) {
+                const pos = getRandomPosition();
+                if (!isOverlapping(pos, others, minD)) return pos;
+            }
+            return getRandomPosition(40);
+        }
+
+        function showLog(msg, duration = 2000) {
+            battleLog.textContent = msg;
+            battleLog.classList.add('show');
+            clearTimeout(state.battleLogTimeout);
+            state.battleLogTimeout = setTimeout(() => battleLog.classList.remove('show'), duration);
+        }
+        function playSound(el) {
+            try { el.currentTime = 0; el.play().catch(() => {}); } catch (_) {}
+        }
+
+        // ============================================================
+        //  创建普通昆虫
+        // ============================================================
+        function createInsect(data, index) {
+            const others = state.insects.map(i => ({ x: i.x, y: i.y }));
+            const pos = getUniquePosition(others);
+            const sizeKey = 'medium';
+            const sizeCfg = SIZE_CONFIG[sizeKey];
+            const baseHp = data.baseHp, baseAtk = data.baseAttack;
+            const maxHp = Math.round(baseHp * sizeCfg.hpMult);
+            const atk = Math.round(baseAtk * sizeCfg.atkMult);
+
+            const inst = {
+                id: state.nextId++,
+                name: data.name,
+                file: data.file,
+                x: pos.x, y: pos.y,
+                vx: rand(-1.2, 1.2), vy: rand(-1.2, 1.2),
+                size: sizeKey,
+                baseHp, baseAttack: baseAtk,
+                hp: maxHp, maxHp: maxHp,
+                attack: atk,
+                isDead: false,
+                reviveTimer: null,
+                reviveCountdown: 0,
+                special: data.special,
+                element: null,
+                nameTag: null, hpFill: null, deadBadge: null, reviveTimerEl: null,
+                isPlayer: false,
+                attackCooldown: 0,
+                poisonReady: true,
+                poisonCooldownTimer: null,
+                summonCooldownUntil: 0, // 蚁后召唤冷却
+                active: true,          // 是否启用
+                isSummoned: false,     // 是否召唤物
+                summonerId: null,      // 召唤者ID
+                lastAttackTime: 0,     // 小蚂蚁自动攻击冷却
+            };
+
+            const div = document.createElement('div');
+            div.className = 'insect';
+            div.dataset.id = inst.id;
+            const sz = sizeCfg.size;
+            div.style.width = sz + 'px'; div.style.height = sz + 'px';
+            div.style.left = inst.x + 'px'; div.style.top = inst.y + 'px';
+
+            const img = document.createElement('img');
+            img.src = data.file; img.alt = data.name;
+            const nameTag = document.createElement('div');
+            nameTag.className = 'name-tag';
+            nameTag.textContent = data.name;
+            const hpWrap = document.createElement('div');
+            hpWrap.className = 'hp-bar-wrap';
+            const hpFill = document.createElement('div');
+            hpFill.className = 'hp-bar-fill';
+            hpFill.style.width = '100%';
+            hpWrap.appendChild(hpFill);
+            const deadBadge = document.createElement('div');
+            deadBadge.className = 'dead-badge';
+            deadBadge.textContent = '💀 死亡';
+            const reviveTimerEl = document.createElement('div');
+            reviveTimerEl.className = 'revive-timer';
+            reviveTimerEl.textContent = '';
+
+            div.appendChild(img);
+            div.appendChild(nameTag);
+            div.appendChild(hpWrap);
+            div.appendChild(deadBadge);
+            div.appendChild(reviveTimerEl);
+            body.appendChild(div);
+
+            inst.element = div;
+            inst.nameTag = nameTag;
+            inst.hpFill = hpFill;
+            inst.deadBadge = deadBadge;
+            inst.reviveTimerEl = reviveTimerEl;
+
+            let pressTimer = null, isLongPress = false, pressStartX = 0, pressStartY = 0;
+            const startPress = (e) => {
+                if (!inst.active || inst.isSummoned) return;
+                const touch = e.touches ? e.touches[0] : e;
+                pressStartX = touch.clientX; pressStartY = touch.clientY;
+                isLongPress = false;
+                clearTimeout(pressTimer);
+                pressTimer = setTimeout(() => { isLongPress = true; handleLongPress(inst); }, 500);
+            };
+            const endPress = (e) => {
+                if (!inst.active || inst.isSummoned) return;
+                clearTimeout(pressTimer);
+                if (!isLongPress) handleClick(inst, e);
+                isLongPress = false;
+            };
+            const movePress = (e) => {
+                if (!pressTimer) return;
+                const touch = e.touches ? e.touches[0] : e;
+                const dx = touch.clientX - pressStartX, dy = touch.clientY - pressStartY;
+                if (Math.sqrt(dx*dx + dy*dy) > 15) { clearTimeout(pressTimer); pressTimer = null; }
+            };
+            div.addEventListener('mousedown', startPress);
+            div.addEventListener('mouseup', endPress);
+            div.addEventListener('mouseleave', () => { clearTimeout(pressTimer); });
+            div.addEventListener('mousemove', movePress);
+            div.addEventListener('touchstart', startPress, { passive: true });
+            div.addEventListener('touchend', endPress, { passive: true });
+            div.addEventListener('touchmove', movePress, { passive: true });
+            div.addEventListener('touchcancel', () => { clearTimeout(pressTimer); }, { passive: true });
+            div.addEventListener('contextmenu', (e) => e.preventDefault());
+
+            state.insects.push(inst);
+            return inst;
+        }
+
+        // ============================================================
+        //  创建小蚂蚁（召唤物）
+        // ============================================================
+        function createSummonedAnt(summoner) {
+            if (!summoner || !summoner.active || summoner.isDead) return null;
+            // 检查数量
+            const count = state.insects.filter(i => i.isSummoned && i.summonerId === summoner.id).length;
+            if (count >= MAX_SUMMONED_ANTS) {
+                showLog('🐜 小蚂蚁已达上限 (10只)', 1200);
+                return null;
+            }
+
+            const others = state.insects.map(i => ({ x: i.x, y: i.y }));
+            const pos = getUniquePosition(others, 40, 30);
+            const antSize = 32; // 小蚂蚁尺寸
+
+            const inst = {
+                id: state.nextId++,
+                name: '小蚂蚁',
+                file: '2.png',
+                x: pos.x, y: pos.y,
+                vx: rand(-0.5, 0.5), vy: rand(-0.5, 0.5),
+                size: 'small', // 仅用于标记，不使用SIZE_CONFIG
+                baseHp: 50, baseAttack: 10,
+                hp: 50, maxHp: 50,
+                attack: 10,
+                isDead: false,
+                reviveTimer: null,
+                reviveCountdown: 0,
+                special: 'none',
+                element: null,
+                nameTag: null, hpFill: null, deadBadge: null, reviveTimerEl: null,
+                isPlayer: false,
+                attackCooldown: 0,
+                poisonReady: false,
+                poisonCooldownTimer: null,
+                summonCooldownUntil: 0,
+                active: true,
+                isSummoned: true,
+                summonerId: summoner.id,
+                lastAttackTime: 0,
+            };
+
+            const div = document.createElement('div');
+            div.className = 'insect';
+            div.dataset.id = inst.id;
+            div.style.width = antSize + 'px';
+            div.style.height = antSize + 'px';
+            div.style.left = inst.x + 'px';
+            div.style.top = inst.y + 'px';
+
+            const img = document.createElement('img');
+            img.src = inst.file; img.alt = inst.name;
+            const nameTag = document.createElement('div');
+            nameTag.className = 'name-tag';
+            nameTag.textContent = inst.name;
+            const hpWrap = document.createElement('div');
+            hpWrap.className = 'hp-bar-wrap';
+            hpWrap.style.width = '80%';
+            const hpFill = document.createElement('div');
+            hpFill.className = 'hp-bar-fill';
+            hpFill.style.width = '100%';
+            hpWrap.appendChild(hpFill);
+            const deadBadge = document.createElement('div');
+            deadBadge.className = 'dead-badge';
+            deadBadge.textContent = '💀';
+            deadBadge.style.fontSize = '12px';
+            deadBadge.style.padding = '2px 6px';
+            const reviveTimerEl = document.createElement('div');
+            reviveTimerEl.className = 'revive-timer';
+            reviveTimerEl.textContent = '';
+
+            div.appendChild(img);
+            div.appendChild(nameTag);
+            div.appendChild(hpWrap);
+            div.appendChild(deadBadge);
+            div.appendChild(reviveTimerEl);
+            body.appendChild(div);
+
+            inst.element = div;
+            inst.nameTag = nameTag;
+            inst.hpFill = hpFill;
+            inst.deadBadge = deadBadge;
+            inst.reviveTimerEl = reviveTimerEl;
+
+            // 小蚂蚁不响应点击/长按，但需要保留样式
+            div.style.pointerEvents = 'none'; // 禁止交互
+
+            state.insects.push(inst);
+            showLog(`🐜 召唤了一只小蚂蚁！ (${count + 1}/${MAX_SUMMONED_ANTS})`, 1500);
+            return inst;
+        }
+
+        // ============================================================
+        //  移除所有召唤物
+        // ============================================================
+        function removeAllSummonedAnts() {
+            const toRemove = state.insects.filter(i => i.isSummoned);
+            for (const inst of toRemove) {
+                if (inst.reviveTimer) clearInterval(inst.reviveTimer);
+                if (inst.element && inst.element.parentNode) {
+                    inst.element.parentNode.removeChild(inst.element);
+                }
+            }
+            if (toRemove.length > 0) {
+                state.insects = state.insects.filter(i => !i.isSummoned);
+                showLog('🔇 战斗关闭，所有召唤物已消失', 1500);
+            }
+        }
+
+        // ============================================================
+        //  更新昆虫可见性（列表管理）
+        // ============================================================
+        function updateInsectVisibility() {
+            for (const inst of state.insects) {
+                if (inst.isSummoned) continue;
+                const enabled = state.insectTypeEnabled[inst.name] !== false;
+                inst.active = enabled;
+                if (inst.element) {
+                    inst.element.style.display = enabled ? '' : 'none';
+                }
+                if (!enabled && inst.isPlayer) {
+                    stopControl();
+                }
+                if (!enabled && inst.name === '蚁后') {
+                    // 移除该蚁后的小蚂蚁
+                    const ants = state.insects.filter(i => i.isSummoned && i.summonerId === inst.id);
+                    for (const ant of ants) {
+                        if (ant.reviveTimer) clearInterval(ant.reviveTimer);
+                        if (ant.element && ant.element.parentNode) ant.element.parentNode.removeChild(ant.element);
+                    }
+                    state.insects = state.insects.filter(i => !(i.isSummoned && i.summonerId === inst.id));
+                }
+                // 如果昆虫死亡且被隐藏，清除复活计时器
+                if (!enabled && inst.isDead && inst.reviveTimer) {
+                    clearInterval(inst.reviveTimer);
+                    inst.reviveTimer = null;
+                }
+            }
+        }
+
+        // ============================================================
+        //  列表模态框逻辑
+        // ============================================================
+        function renderListModal() {
+            listContainer.innerHTML = '';
+            for (const data of INSECT_DATA) {
+                const row = document.createElement('div');
+                row.className = 'list-row';
+                const label = document.createElement('span');
+                label.className = 'label';
+                label.textContent = data.name;
+                const toggle = document.createElement('div');
+                toggle.className = 'toggle-switch' + (state.insectTypeEnabled[data.name] ? ' active' : '');
+                toggle.innerHTML = '<div class="knob"></div>';
+                toggle.addEventListener('click', () => {
+                    const newState = !state.insectTypeEnabled[data.name];
+                    state.insectTypeEnabled[data.name] = newState;
+                    toggle.classList.toggle('active', newState);
+                    updateInsectVisibility();
+                    if (!newState) showLog(`🚫 ${data.name} 已关闭`, 1000);
+                    else showLog(`✅ ${data.name} 已开启`, 1000);
+                });
+                row.appendChild(label);
+                row.appendChild(toggle);
+                listContainer.appendChild(row);
+            }
+        }
+
+        function openListModal() {
+            renderListModal();
+            listModal.classList.add('active');
+        }
+
+        // ============================================================
+        //  点击/长按处理
+        // ============================================================
+        function handleClick(inst, event) {
+            if (!inst.active || inst.isSummoned) return;
+            if (inst.isDead) { playSound(clickSound); showLog(`${inst.name} 已经死亡 💀`, 1200); return; }
+            playSound(clickSound);
+            const rect = inst.element.getBoundingClientRect();
+            const cx = rect.left + rect.width/2 - 50, cy = rect.top + rect.height/2 - 50;
+            const effect = document.createElement('div');
+            effect.className = 'click-effect';
+            effect.style.left = cx + 'px'; effect.style.top = cy + 'px';
+            body.appendChild(effect);
+            setTimeout(() => effect.remove(), 600);
+
+            if (!state.fightEnabled) { showLog(`🔇 战斗已关闭，${inst.name} 在散步`, 1000); return; }
+            if (state.isFighting) { showLog('⏳ 战斗中，请稍候...', 1000); return; }
+
+            if (state.selectedId === null) {
+                selectInsect(inst.id);
+                showLog(`👆 选中 ${inst.name}，点击另一只昆虫发起战斗`, 1500);
+                return;
+            }
+            if (state.selectedId === inst.id) {
+                deselectInsect();
+                showLog(`✖️ 取消选中 ${inst.name}`, 800);
+                return;
+            }
+
+            const attacker = state.insects.find(i => i.id === state.selectedId);
+            if (!attacker || attacker.isDead || !attacker.active) { deselectInsect(); showLog('❌ 选中的昆虫不可用', 1000); return; }
+            if (attacker.id === inst.id) return;
+            if (inst.isDead) { showLog(`❌ ${inst.name} 已死亡，无法战斗`, 1200); deselectInsect(); return; }
+            startBattle(attacker, inst);
+        }
+
+        function selectInsect(id) {
+            deselectInsect();
+            state.selectedId = id;
+            const inst = state.insects.find(i => i.id === id);
+            if (inst && !inst.isDead && inst.active && !inst.isSummoned) inst.element.classList.add('selected');
+            else state.selectedId = null;
+        }
+        function deselectInsect() {
+            if (state.selectedId !== null) {
+                const prev = state.insects.find(i => i.id === state.selectedId);
+                if (prev) prev.element.classList.remove('selected');
+                state.selectedId = null;
+            }
+        }
+
+        let modalTargetId = null;
+        function handleLongPress(inst) {
+            if (!inst.active || inst.isSummoned) return;
+            if (document.activeElement) document.activeElement.blur();
+            modalTargetId = inst.id;
+            openInsectModal(inst);
+            if (navigator.vibrate) navigator.vibrate(20);
+        }
+
+        function openInsectModal(inst) {
+            modalTargetId = inst.id;
+            updateModalContent(inst);
+            insectModal.classList.add('active');
+        }
+        function updateModalContent(inst) {
+            const sizeCfg = SIZE_CONFIG[inst.size];
+            modalInsectName.innerHTML = `<span class="emoji-big">🐛</span> ${inst.name}`;
+            modalInsectStatus.textContent = `状态：${inst.isDead ? '💀 死亡' : '✅ 存活'}`;
+            modalInsectStatus.style.color = inst.isDead ? '#c62828' : '#2E7D32';
+            modalHp.textContent = `${inst.hp} / ${inst.maxHp}`;
+            modalAttack.textContent = inst.attack;
+            modalSizeMulti.textContent = `${sizeCfg.hpMult.toFixed(1)}x 血量 / ${sizeCfg.atkMult.toFixed(1)}x 攻击`;
+            const btns = sizeGroup.querySelectorAll('.size-btn');
+            btns.forEach(btn => btn.classList.toggle('active', btn.dataset.size === inst.size));
+            if (state.controlledInsect && state.controlledInsect.id === inst.id) {
+                controlToggleBtn.textContent = '🛑 停止操控';
+            } else {
+                controlToggleBtn.textContent = '🎮 操控此昆虫';
+            }
+            controlToggleBtn.disabled = inst.isDead || !inst.active;
+        }
+        function closeInsectModal() {
+            insectModal.classList.remove('active');
+            modalTargetId = null;
+        }
+
+        // ============================================================
+        //  操控/停止操控 核心函数
+        // ============================================================
+        function stopControl() {
+            if (state.controlledInsect) {
+                state.controlledInsect.isPlayer = false;
+                state.controlledInsect.element.style.border = 'none';
+                state.controlledInsect.element.style.borderRadius = '';
+                controlsDiv.classList.remove('active');
+                stopControlBtn.style.display = 'none';
+                state.controlledInsect = null;
+                if (modalTargetId !== null) {
+                    const inst = state.insects.find(i => i.id === modalTargetId);
+                    if (inst) updateModalContent(inst);
+                }
+                showLog('🛑 已停止操控', 1000);
+            }
+        }
+
+        function toggleControl(inst) {
+            if (inst.isDead || !inst.active || inst.isSummoned) { showLog('❌ 无法操控此昆虫', 1200); return; }
+            if (state.controlledInsect) {
+                if (state.controlledInsect.id === inst.id) {
+                    stopControl();
+                    closeInsectModal();
+                    return;
+                }
+                stopControl();
+            }
+            inst.isPlayer = true;
+            state.controlledInsect = inst;
+            inst.element.style.border = '3px solid #00ff88';
+            inst.element.style.borderRadius = '50%';
+            controlsDiv.classList.add('active');
+            stopControlBtn.style.display = 'block';
+            updateControlButtons(inst);
+            closeInsectModal();
+            showLog(`🎮 你现在操控 ${inst.name}`, 1500);
+        }
+
+        function updateControlButtons(inst) {
+            attackMelee.style.display = 'flex';
+            attackRemote.style.display = 'none';
+            attackPoison.style.display = 'none';
+            attackSummon.style.display = 'none';
+            if (inst.special === 'ranged') attackRemote.style.display = 'flex';
+            if (inst.special === 'poison') {
+                attackPoison.style.display = 'flex';
+                updatePoisonCooldownUI();
+            }
+            if (inst.special === 'summon') {
+                attackSummon.style.display = 'flex';
+                updateSummonCooldownUI();
+            }
+        }
+
+        function updatePoisonCooldownUI() {
+            const inst = state.controlledInsect;
+            if (!inst || inst.special !== 'poison') return;
+            const now = Date.now();
+            const elapsed = now - state.lastPoisonTime;
+            const remaining = Math.max(0, state.poisonCooldownMax - elapsed);
+            if (remaining > 0) {
+                const sec = (remaining / 1000).toFixed(1);
+                poisonCooldown.textContent = `⏳${sec}s`;
+                attackPoison.classList.add('disabled');
+            } else {
+                poisonCooldown.textContent = '✓';
+                attackPoison.classList.remove('disabled');
+            }
+        }
+
+        function updateSummonCooldownUI() {
+            const inst = state.controlledInsect;
+            if (!inst || inst.special !== 'summon') return;
+            const now = Date.now();
+            const remaining = Math.max(0, inst.summonCooldownUntil - now);
+            if (remaining > 0) {
+                const sec = (remaining / 1000).toFixed(1);
+                summonCooldown.textContent = `⏳${sec}s`;
+                attackSummon.classList.add('disabled');
+            } else {
+                summonCooldown.textContent = '✓';
+                attackSummon.classList.remove('disabled');
+            }
+        }
+
+        // ============================================================
+        //  战斗系统
+        // ============================================================
+        function startBattle(attacker, defender) {
+           // 蚁后不能攻击小蚂蚁
+           if (attacker.special === 'summon' && defender.isSummoned) {
+           showLog('🐜 蚁后不能攻击小蚂蚁', 1000);
+           deselectInsect();
+           return;
+        }
+    
+            if (state.isFighting) return;
+            if (!attacker.active || !defender.active || attacker.isDead || defender.isDead) { showLog('❌ 其中一方不可用', 1000); deselectInsect(); return; }
+            if (!state.fightEnabled) { showLog('🔇 战斗已关闭', 800); deselectInsect(); return; }
+            performAttack(attacker, defender);
+        }
+
+        function performAttack(attacker, defender) {
+            if (attacker.special === 'summon' && defender.isSummoned) {
+            if (attacker.isPlayer) showLog('🐜 蚁后不能攻击小蚂蚁', 800);
+            return;
+            }
+
+            if (!state.fightEnabled) return;
+            if (!attacker.active || !defender.active || attacker.isDead || defender.isDead) return;
+            const d = dist(attacker, defender);
+            if (d > MELEE_RANGE) {
+                if (attacker.isPlayer) showLog('📏 距离太远，请靠近', 800);
+                return;
+            }
+            state.isFighting = true;
+            attacker.element.classList.add('attacking');
+            defender.element.classList.add('hit');
+
+            const dmg = Math.round(attacker.attack * (0.85 + Math.random() * 0.3));
+            const newHp = Math.max(0, defender.hp - dmg);
+            defender.hp = newHp;
+            showDamageNumber(defender, dmg);
+            playSound(hitSound);
+            showLog(`⚔️ ${attacker.name} 攻击 ${defender.name}，造成 ${dmg} 点伤害！`, 1800);
+            updateHpBar(defender);
+
+            if (defender.hp <= 0) {
+                defender.hp = 0;
+                setDead(defender);
+                playSound(dieSound);
+                showLog(`💀 ${defender.name} 被 ${attacker.name} 击败！`, 2500);
+            } else {
+                if (!defender.isPlayer) {
+                    setTimeout(() => {
+                        if (!defender.isDead && !attacker.isDead && state.fightEnabled) {
+                            performAttack(defender, attacker);
+                        }
+                    }, 300);
+                }
+            }
+            setTimeout(() => {
+                attacker.element.classList.remove('attacking');
+                defender.element.classList.remove('hit');
+                state.isFighting = false;
+                if (attacker.isDead || defender.isDead) deselectInsect();
+            }, 800);
+        }
+
+        function performRangedAttack(attacker) {
+            if (!attacker.isPlayer || !attacker.active) return;
+            if (attacker.isDead) { showLog('💀 已死亡', 800); return; }
+            if (!state.fightEnabled) { showLog('🔇 战斗已关闭', 800); return; }
+
+            let target = null;
+            let minDist = Infinity;
+            for (const inst of state.insects) {
+                if (inst.id === attacker.id || inst.isDead || !inst.active || inst.isSummoned) continue;
+                const d = dist(attacker, inst);
+                if (d < RANGED_RANGE && d < minDist) {
+                    minDist = d;
+                    target = inst;
+                }
+            }
+            if (!target) { showLog('🌿 没有在射程内的敌人', 1000); return; }
+
+            const proj = document.createElement('div');
+            proj.className = 'projectile';
+            const rect = attacker.element.getBoundingClientRect();
+            const startX = rect.left + rect.width/2 - 10;
+            const startY = rect.top + rect.height/2 - 10;
+            proj.style.left = startX + 'px';
+            proj.style.top = startY + 'px';
+            body.appendChild(proj);
+
+            const targetRect = target.element.getBoundingClientRect();
+            const endX = targetRect.left + targetRect.width/2 - 10;
+            const endY = targetRect.top + targetRect.height/2 - 10;
+            const duration = 400;
+            const startTime = Date.now();
+            const startLeft = startX, startTop = startY;
+            playSound(shootSound);
+
+            function animateProjectile() {
+                const now = Date.now();
+                const progress = Math.min((now - startTime) / duration, 1);
+                const cx = startLeft + (endX - startLeft) * progress;
+                const cy = startTop + (endY - startTop) * progress;
+                proj.style.left = cx + 'px';
+                proj.style.top = cy + 'px';
+                if (progress < 1) {
+                    requestAnimationFrame(animateProjectile);
+                } else {
+                    proj.remove();
+                    if (state.fightEnabled && !target.isDead && target.active && dist(attacker, target) < RANGED_RANGE) {
+                        const dmg = Math.round(attacker.attack * (0.7 + Math.random() * 0.2));
+                        target.hp = Math.max(0, target.hp - dmg);
+                        showDamageNumber(target, dmg);
+                        updateHpBar(target);
+                        playSound(hitSound);
+                        showLog(`🌿 ${attacker.name} 远程攻击 ${target.name}，造成 ${dmg} 点伤害！`, 1500);
+                        if (target.hp <= 0) {
+                            target.hp = 0;
+                            setDead(target);
+                            playSound(dieSound);
+                            showLog(`💀 ${target.name} 被 ${attacker.name} 远程击杀！`, 2500);
+                        } else {
+                            if (!target.isPlayer) {
+                                setTimeout(() => {
+                                    if (!target.isDead && !attacker.isDead && state.fightEnabled) {
+                                        performAttack(target, attacker);
+                                    }
+                                }, 300);
+                            }
+                        }
+                    }
+                }
+            }
+            animateProjectile();
+        }
+
+        function performPoisonAttack(attacker) {
+            if (!attacker.isPlayer || !attacker.active) return;
+            if (attacker.isDead) { showLog('💀 已死亡', 800); return; }
+            if (!state.fightEnabled) { showLog('🔇 战斗已关闭', 800); return; }
+            const now = Date.now();
+            if (now - state.lastPoisonTime < state.poisonCooldownMax) {
+                showLog('☠️ 毒技能冷却中', 1000);
+                return;
+            }
+
+            let target = null;
+            let minDist = Infinity;
+            for (const inst of state.insects) {
+                if (inst.id === attacker.id || inst.isDead || !inst.active || inst.isSummoned) continue;
+                const d = dist(attacker, inst);
+                if (d < RANGED_RANGE && d < minDist) {
+                    minDist = d;
+                    target = inst;
+                }
+            }
+            if (!target) { showLog('☠️ 没有在射程内的敌人', 1000); return; }
+
+            state.lastPoisonTime = now;
+            updatePoisonCooldownUI();
+
+            const proj = document.createElement('div');
+            proj.className = 'projectile poison';
+            const rect = attacker.element.getBoundingClientRect();
+            const startX = rect.left + rect.width/2 - 10;
+            const startY = rect.top + rect.height/2 - 10;
+            proj.style.left = startX + 'px';
+            proj.style.top = startY + 'px';
+            body.appendChild(proj);
+
+            const targetRect = target.element.getBoundingClientRect();
+            const endX = targetRect.left + targetRect.width/2 - 10;
+            const endY = targetRect.top + targetRect.height/2 - 10;
+            const duration = 500;
+            const startTime = Date.now();
+            const startLeft = startX, startTop = startY;
+            playSound(shootSound);
+
+            function animatePoison() {
+                const now = Date.now();
+                const progress = Math.min((now - startTime) / duration, 1);
+                const cx = startLeft + (endX - startLeft) * progress;
+                const cy = startTop + (endY - startTop) * progress;
+                proj.style.left = cx + 'px';
+                proj.style.top = cy + 'px';
+                if (progress < 1) {
+                    requestAnimationFrame(animatePoison);
+                } else {
+                    proj.remove();
+                    if (state.fightEnabled && !target.isDead && target.active && dist(attacker, target) < RANGED_RANGE) {
+                        const dmg = Math.round(attacker.attack * 1.5);
+                        target.hp = Math.max(0, target.hp - dmg);
+                        showDamageNumber(target, dmg);
+                        updateHpBar(target);
+                        playSound(hitSound);
+                        showLog(`☠️ ${attacker.name} 毒击 ${target.name}，造成 ${dmg} 点伤害！`, 1500);
+                        if (target.hp <= 0) {
+                            target.hp = 0;
+                            setDead(target);
+                            playSound(dieSound);
+                            showLog(`💀 ${target.name} 被毒死！`, 2500);
+                        } else {
+                            if (!target.isPlayer) {
+                                setTimeout(() => {
+                                    if (!target.isDead && !attacker.isDead && state.fightEnabled) {
+                                        performAttack(target, attacker);
+                                    }
+                                }, 300);
+                            }
+                        }
+                    }
+                }
+            }
+            animatePoison();
+            const cooldownInterval = setInterval(() => {
+                updatePoisonCooldownUI();
+                if (Date.now() - state.lastPoisonTime >= state.poisonCooldownMax) {
+                    clearInterval(cooldownInterval);
+                }
+            }, 200);
+        }
+
+        // ============================================================
+        //  召唤技能
+        // ============================================================
+        function performSummon(attacker) {
+            if (!attacker.isPlayer || !attacker.active) return;
+            if (attacker.isDead) { showLog('💀 已死亡', 800); return; }
+            if (!state.fightEnabled) { showLog('🔇 战斗已关闭', 800); return; }
+            const now = Date.now();
+            if (now < attacker.summonCooldownUntil) {
+                showLog('🐜 召唤冷却中', 1000);
+                return;
+            }
+            const count = state.insects.filter(i => i.isSummoned && i.summonerId === attacker.id).length;
+            if (count >= MAX_SUMMONED_ANTS) {
+                showLog('🐜 小蚂蚁已达上限 (10只)', 1200);
+                return;
+            }
+            attacker.summonCooldownUntil = now + SUMMON_COOLDOWN;
+            createSummonedAnt(attacker);
+            updateSummonCooldownUI();
+            playSound(shootSound); // 使用射击音效作为召唤音效
+        }
+
+        // ============================================================
+        //  小蚂蚁自动攻击逻辑
+        // ============================================================
+        function performSummonedAntAttack(ant, target) {
+            if (!state.fightEnabled || !ant.active || !target.active || ant.isDead || target.isDead) return;
+            const dmg = Math.round(ant.attack * (0.8 + Math.random() * 0.3));
+            target.hp = Math.max(0, target.hp - dmg);
+            showDamageNumber(target, dmg);
+            updateHpBar(target);
+            playSound(hitSound);
+            if (target.hp <= 0) {
+                target.hp = 0;
+                setDead(target);
+                playSound(dieSound);
+                showLog(`💀 ${target.name} 被小蚂蚁击杀！`, 2000);
+            }
+        }
+
+        // ============================================================
+        //  移动更新
+        // ============================================================
+        function updatePositions() {
+            const margin = 50;
+            const w = window.innerWidth, h = window.innerHeight;
+            const now = Date.now();
+
+            for (const inst of state.insects) {
+                if (!inst.active || inst.isDead) continue;
+
+                // 小蚂蚁自动攻击
+                if (inst.isSummoned && state.fightEnabled) {
+                    if (now - inst.lastAttackTime > ANT_ATTACK_COOLDOWN) {
+                        let target = null;
+                        let minDist = Infinity;
+                        for (const other of state.insects) {
+                            if (other.id === inst.id || other.isDead || !other.active || other.isSummoned) continue;
+                            if (other.id === inst.summonerId) continue; // 不攻击自己的召唤者
+                            const d = dist(inst, other);
+                            if (d < 60 && d < minDist) {
+                                minDist = d;
+                                target = other;
+                            }
+                        }
+                        if (target) {
+                            performSummonedAntAttack(inst, target);
+                            inst.lastAttackTime = now;
+                        }
+                    }
+                }
+
+                if (inst.isPlayer) {
+                    const jx = state.joystickDir.x;
+                    const jy = state.joystickDir.y;
+                    const speed = 2.8;
+                    if (Math.abs(jx) > 0.05 || Math.abs(jy) > 0.05) {
+                        const len = Math.sqrt(jx*jx + jy*jy);
+                        inst.vx = (jx / len) * speed;
+                        inst.vy = (jy / len) * speed;
+                    } else {
+                        inst.vx *= 0.92;
+                        inst.vy *= 0.92;
+                        if (Math.abs(inst.vx) < 0.05) inst.vx = 0;
+                        if (Math.abs(inst.vy) < 0.05) inst.vy = 0;
+                    }
+                }
+
+                inst.x += inst.vx;
+                inst.y += inst.vy;
+                const half = parseInt(inst.element.style.width) / 2 || 20;
+                if (inst.x <= margin) { inst.x = margin; inst.vx *= -1; }
+                if (inst.x >= w - margin - half*2) { inst.x = w - margin - half*2; inst.vx *= -1; }
+                if (inst.y <= margin) { inst.y = margin; inst.vy *= -1; }
+                if (inst.y >= h - margin - half*2) { inst.y = h - margin - half*2; inst.vy *= -1; }
+
+                for (const other of state.insects) {
+                    if (other.id === inst.id || !other.active || other.isDead) continue;
+                    const dx = inst.x - other.x;
+                    const dy = inst.y - other.y;
+                    const d = Math.sqrt(dx*dx + dy*dy);
+                    const minD = (inst.isSummoned || other.isSummoned) ? 25 : MIN_DIST * 0.7;
+                    if (d < minD && d > 0.01) {
+                        const angle = Math.atan2(dy, dx);
+                        const push = (minD - d) * 0.04;
+                        inst.vx += Math.cos(angle) * push;
+                        inst.vy += Math.sin(angle) * push;
+                        other.vx -= Math.cos(angle) * push;
+                        other.vy -= Math.sin(angle) * push;
+                    }
+                }
+
+                const speed = Math.sqrt(inst.vx*inst.vx + inst.vy*inst.vy);
+                const maxSpeed = inst.isPlayer ? 3.0 : (inst.isSummoned ? 1.8 : 2.5);
+                if (speed > maxSpeed) {
+                    inst.vx = (inst.vx / speed) * maxSpeed;
+                    inst.vy = (inst.vy / speed) * maxSpeed;
+                }
+                if (!inst.isPlayer && !inst.isSummoned && speed < 0.3 && Math.random() < 0.005) {
+                    inst.vx += rand(-0.5, 0.5);
+                    inst.vy += rand(-0.5, 0.5);
+                }
+                if (inst.isSummoned && speed < 0.1 && Math.random() < 0.01) {
+                    inst.vx += rand(-0.2, 0.2);
+                    inst.vy += rand(-0.2, 0.2);
+                }
+
+                inst.element.style.left = inst.x + 'px';
+                inst.element.style.top = inst.y + 'px';
+            }
+
+            // 更新召唤冷却UI
+            if (state.controlledInsect && state.controlledInsect.special === 'summon') {
+                updateSummonCooldownUI();
+            }
+
+            requestAnimationFrame(updatePositions);
+        }
+
+        function setupJoystick() {
+            let active = false;
+            let touchId = null;
+            const getPos = (e) => {
+                const touch = e.touches ? e.touches[0] : e;
+                return { x: touch.clientX, y: touch.clientY };
+            };
+            const handleStart = (e) => {
+                e.preventDefault();
+                const pos = getPos(e);
+                const rect = joystickArea.getBoundingClientRect();
+                const cx = rect.left + rect.width/2;
+                const cy = rect.top + rect.height/2;
+                const dx = pos.x - cx;
+                const dy = pos.y - cy;
+                const maxR = rect.width/2 - 20;
+                const dist2 = Math.sqrt(dx*dx + dy*dy);
+                const clampR = Math.min(dist2, maxR);
+                const angle = Math.atan2(dy, dx);
+                const moveX = Math.cos(angle) * clampR;
+                const moveY = Math.sin(angle) * clampR;
+                joystickKnob.style.transform = `translate(${-50 + (moveX/maxR)*50}%, ${-50 + (moveY/maxR)*50}%)`;
+                state.joystickDir.x = moveX / maxR;
+                state.joystickDir.y = moveY / maxR;
+                active = true;
+                if (e.touches) touchId = e.touches[0].identifier;
+            };
+            const handleMove = (e) => {
+                e.preventDefault();
+                if (!active) return;
+                let pos;
+                if (e.touches) {
+                    let touch = null;
+                    for (let t of e.touches) {
+                        if (t.identifier === touchId) { touch = t; break; }
+                    }
+                    if (!touch) return;
+                    pos = { x: touch.clientX, y: touch.clientY };
+                } else {
+                    pos = { x: e.clientX, y: e.clientY };
+                }
+                const rect = joystickArea.getBoundingClientRect();
+                const cx = rect.left + rect.width/2;
+                const cy = rect.top + rect.height/2;
+                const dx = pos.x - cx;
+                const dy = pos.y - cy;
+                const maxR = rect.width/2 - 20;
+                const dist2 = Math.sqrt(dx*dx + dy*dy);
+                const clampR = Math.min(dist2, maxR);
+                const angle = Math.atan2(dy, dx);
+                const moveX = Math.cos(angle) * clampR;
+                const moveY = Math.sin(angle) * clampR;
+                joystickKnob.style.transform = `translate(${-50 + (moveX/maxR)*50}%, ${-50 + (moveY/maxR)*50}%)`;
+                state.joystickDir.x = moveX / maxR;
+                state.joystickDir.y = moveY / maxR;
+            };
+            const handleEnd = (e) => {
+                active = false;
+                touchId = null;
+                joystickKnob.style.transform = 'translate(-50%, -50%)';
+                state.joystickDir.x = 0;
+                state.joystickDir.y = 0;
+            };
+            joystickArea.addEventListener('mousedown', handleStart);
+            document.addEventListener('mousemove', handleMove);
+            document.addEventListener('mouseup', handleEnd);
+            joystickArea.addEventListener('touchstart', handleStart, { passive: false });
+            document.addEventListener('touchmove', handleMove, { passive: false });
+            document.addEventListener('touchend', handleEnd, { passive: false });
+            document.addEventListener('touchcancel', handleEnd, { passive: false });
+        }
+
+        function setupAttackButtons() {
+            attackMelee.addEventListener('click', () => {
+                const inst = state.controlledInsect;
+                if (!inst || inst.isDead || !inst.active) { showLog('❌ 没有可操控的昆虫', 1000); return; }
+                if (!state.fightEnabled) { showLog('🔇 战斗已关闭', 800); return; }
+                let target = null;
+                let minDist = Infinity;
+                for (const other of state.insects) {
+                    if (other.id === inst.id || other.isDead || !other.active) continue;
+                    const d = dist(inst, other);
+                    if (d < MELEE_RANGE && d < minDist) {
+                        minDist = d;
+                        target = other;
+                    }
+                }
+                if (!target) { showLog('⚔️ 附近没有敌人', 1000); return; }
+                performAttack(inst, target);
+            });
+            attackRemote.addEventListener('click', () => {
+                const inst = state.controlledInsect;
+                if (!inst || inst.isDead || !inst.active) return;
+                if (!state.fightEnabled) { showLog('🔇 战斗已关闭', 800); return; }
+                performRangedAttack(inst);
+            });
+            attackPoison.addEventListener('click', () => {
+                const inst = state.controlledInsect;
+                if (!inst || inst.isDead || !inst.active) return;
+                if (!state.fightEnabled) { showLog('🔇 战斗已关闭', 800); return; }
+                performPoisonAttack(inst);
+            });
+            attackSummon.addEventListener('click', () => {
+                const inst = state.controlledInsect;
+                if (!inst || inst.isDead || !inst.active) return;
+                if (!state.fightEnabled) { showLog('🔇 战斗已关闭', 800); return; }
+                performSummon(inst);
+            });
+        }
+
+        function toggleFight(enabled) {
+            state.fightEnabled = enabled;
+            fightToggle.classList.toggle('active', enabled);
+            if (!enabled) {
+                deselectInsect();
+                removeAllSummonedAnts();
+                showLog('🔇 战斗已关闭，召唤物已消失', 1500);
+            } else {
+                showLog('⚔️ 战斗已开启', 1200);
+            }
+        }
+
+        function showDamageNumber(inst, dmg) {
+            const rect = inst.element.getBoundingClientRect();
+            const span = document.createElement('div');
+            span.className = 'dmg-float';
+            span.textContent = '-' + dmg;
+            span.style.left = (rect.left + rect.width/2 - 20) + 'px';
+            span.style.top = (rect.top - 10) + 'px';
+            body.appendChild(span);
+            setTimeout(() => span.remove(), 1000);
+        }
+
+        function updateHpBar(inst) {
+            const pct = Math.max(0, (inst.hp / inst.maxHp) * 100);
+            inst.hpFill.style.width = pct + '%';
+            const pct2 = inst.hp / inst.maxHp;
+            inst.hpFill.className = 'hp-bar-fill';
+            if (pct2 < 0.25) inst.hpFill.classList.add('low');
+            else if (pct2 < 0.55) inst.hpFill.classList.add('mid');
+        }
+
+        function setDead(inst) {
+            if (inst.isDead) return;
+            inst.isDead = true;
+            inst.element.classList.add('dead');
+            inst.element.classList.remove('selected');
+            inst.hpFill.style.width = '0%';
+            inst.hpFill.className = 'hp-bar-fill';
+            if (state.selectedId === inst.id) state.selectedId = null;
+            if (state.controlledInsect && state.controlledInsect.id === inst.id) {
+                stopControl();
+            }
+            if (inst.isSummoned) {
+                // 小蚂蚁死亡后直接移除，不复活
+                if (inst.reviveTimer) clearInterval(inst.reviveTimer);
+                setTimeout(() => {
+                    if (inst.element && inst.element.parentNode) inst.element.parentNode.removeChild(inst.element);
+                    state.insects = state.insects.filter(i => i.id !== inst.id);
+                }, 1000);
+                return;
+            }
+            inst.reviveCountdown = REVIVE_SECONDS;
+            updateReviveTimer(inst);
+            inst.reviveTimer = setInterval(() => {
+                inst.reviveCountdown--;
+                updateReviveTimer(inst);
+                if (inst.reviveCountdown <= 0) {
+                    clearInterval(inst.reviveTimer);
+                    inst.reviveTimer = null;
+                    reviveInsect(inst);
+                }
+            }, 1000);
+        }
+
+        function updateReviveTimer(inst) {
+            if (inst.reviveTimerEl) inst.reviveTimerEl.textContent = `⏳ ${inst.reviveCountdown}s`;
+        }
+        function reviveInsect(inst) {
+            if (inst.isSummoned) return;
+            inst.isDead = false;
+            inst.hp = inst.maxHp;
+            inst.element.classList.remove('dead');
+            inst.element.classList.add('revive');
+            inst.hpFill.style.width = '100%';
+            updateHpBar(inst);
+            if (inst.reviveTimerEl) inst.reviveTimerEl.textContent = '';
+            if (inst.reviveTimer) { clearInterval(inst.reviveTimer); inst.reviveTimer = null; }
+            showLog(`✨ ${inst.name} 复活了！`, 1500);
+            setTimeout(() => inst.element.classList.remove('revive'), 800);
+        }
+
+        function changeInsectSize(inst, newSize) {
+            if (inst.size === newSize || inst.isSummoned) return;
+            inst.size = newSize;
+            const cfg = SIZE_CONFIG[newSize];
+            inst.maxHp = Math.round(inst.baseHp * cfg.hpMult);
+            inst.attack = Math.round(inst.baseAttack * cfg.atkMult);
+            if (inst.hp > 0) inst.hp = Math.min(inst.hp, inst.maxHp);
+            else inst.hp = 0;
+            if (inst.isDead) inst.hp = 0;
+            const sz = cfg.size;
+            inst.element.style.width = sz + 'px';
+            inst.element.style.height = sz + 'px';
+            updateHpBar(inst);
+            if (modalTargetId === inst.id) updateModalContent(inst);
+            showLog(`📏 ${inst.name} 体型变为「${cfg.label}」`, 1200);
+        }
+
+        // ============================================================
+        //  初始化
+        // ============================================================
+        function hideLoadingScreen() {
+            if (loadingScreen) {
+                loadingScreen.classList.add('hidden');
+                setTimeout(() => { loadingScreen.style.display = 'none'; }, 800);
+            }
+        }
+
+        function init() {
+            hideLoadingScreen();
+
+            INSECT_DATA.forEach((data, idx) => {
+                setTimeout(() => createInsect(data, idx), idx * 180);
+            });
+            setTimeout(updatePositions, 1200);
+            setupJoystick();
+            setupAttackButtons();
+
+            stopControlBtn.addEventListener('click', stopControl);
+
+            settingsBtn.addEventListener('click', () => {
+                fightToggle.classList.toggle('active', state.fightEnabled);
+                settingsModal.classList.add('active');
+            });
+            settingsClose.addEventListener('click', () => settingsModal.classList.remove('active'));
+            settingsDone.addEventListener('click', () => settingsModal.classList.remove('active'));
+            settingsModal.addEventListener('click', (e) => { if (e.target === settingsModal) settingsModal.classList.remove('active'); });
+            fightToggle.addEventListener('click', () => toggleFight(!state.fightEnabled));
+
+            insectModalClose.addEventListener('click', closeInsectModal);
+            modalCloseBtn.addEventListener('click', closeInsectModal);
+            insectModal.addEventListener('click', (e) => { if (e.target === insectModal) closeInsectModal(); });
+
+            sizeGroup.addEventListener('click', (e) => {
+                const btn = e.target.closest('.size-btn');
+                if (!btn) return;
+                const size = btn.dataset.size;
+                if (!SIZE_CONFIG[size]) return;
+                const inst = state.insects.find(i => i.id === modalTargetId);
+                if (!inst) return;
+                changeInsectSize(inst, size);
+                sizeGroup.querySelectorAll('.size-btn').forEach(b => b.classList.toggle('active', b.dataset.size === size));
+                updateModalContent(inst);
+            });
+
+            controlToggleBtn.addEventListener('click', () => {
+                const inst = state.insects.find(i => i.id === modalTargetId);
+                if (!inst) return;
+                toggleControl(inst);
+            });
+
+            // 列表按钮
+            listBtn.addEventListener('click', openListModal);
+            listClose.addEventListener('click', () => listModal.classList.remove('active'));
+            listModal.addEventListener('click', (e) => { if (e.target === listModal) listModal.classList.remove('active'); });
+            listAllOff.addEventListener('click', () => {
+                for (const key in state.insectTypeEnabled) state.insectTypeEnabled[key] = false;
+                updateInsectVisibility();
+                renderListModal();
+                showLog('🚫 已关闭所有昆虫', 1500);
+            });
+            listAllOn.addEventListener('click', () => {
+                for (const key in state.insectTypeEnabled) state.insectTypeEnabled[key] = true;
+                updateInsectVisibility();
+                renderListModal();
+                showLog('✅ 已开启所有昆虫', 1500);
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    if (insectModal.classList.contains('active')) closeInsectModal();
+                    if (settingsModal.classList.contains('active')) settingsModal.classList.remove('active');
+                    if (listModal.classList.contains('active')) listModal.classList.remove('active');
+                }
+            });
+
+            let resizeTimer;
+            window.addEventListener('resize', () => {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(() => {
+                    const w = window.innerWidth, h = window.innerHeight;
+                    for (const inst of state.insects) {
+                        if (!inst.active) continue;
+                        const half = parseInt(inst.element.style.width) / 2 || 20;
+                        inst.x = clamp(inst.x, 30, w - 30 - half*2);
+                        inst.y = clamp(inst.y, 30, h - 30 - half*2);
+                        inst.element.style.left = inst.x + 'px';
+                        inst.element.style.top = inst.y + 'px';
+                    }
+                }, 300);
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.insect') && !e.target.closest('.modal-overlay') && !e.target.closest('.settings-btn') && !e.target.closest('.list-btn') && !e.target.closest('#controls') && !e.target.closest('#stopControlBtn')) {
+                    deselectInsect();
+                }
+            });
+
+            window.addEventListener('load', hideLoadingScreen);
+
+            showLog('🌿 点击昆虫选中，长按修改属性并操控！蚁后可以召唤小蚂蚁！', 3000);
+            console.log('🐞 昆虫对决 · 操控版 · 蚁后召唤已启动！');
+        }
+
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            init();
+        } else {
+            document.addEventListener('DOMContentLoaded', init);
+        }
+        setTimeout(() => {
+            if (state.insects.length === 0) {
+                init();
+            }
+        }, 500);
+    </script>
+</body>
+</html>
