@@ -597,7 +597,7 @@
 
     <!-- ========== Toast ========== -->
     <div class="toast" id="toast">
-        <span class="emoji">✨</span>
+        <span class="emoji">⚠︎</span>
         <span class="msg" id="toastMsg">提示</span>
     </div>
 
@@ -607,7 +607,7 @@
         <!-- 头部 -->
         <div class="header">
             <div class="title">
-                <span class="emoji">🐜</span>
+                <span class="emoji">✦</span>
                 <span class="ants"></span>
                 <span class="badge">主界面</span>
             </div>
@@ -625,23 +625,22 @@
                 <!-- 权限按钮 -->
                 <div class="permission-wrapper">
                     <button class="permission-btn" id="permBtn">
-                        <span class="icon">⚙️</span>
+                        <span class="icon">⚙︎</span>
                         权限
                         <span class="arrow" id="permArrow">▾</span>
                     </button>
                     <div class="permission-dropdown" id="permDropdown">
                         <div class="dropdown-header">📋 应用所需权限</div>
                         <button class="item" data-perm="overlay">
-                            <span class="icon">🪟</span>
                             <span class="label">1. 打开悬浮窗权限</span>
                         </button>
                         <button class="item" data-perm="notification">
-                            <span class="icon">🔔</span>
                             <span class="label">2. 打开通知权限</span>
                         </button>
                         <div class="dropdown-footer">
                             1.在系统设置中开启以上权限即可获得桌宠，如果出现点击给权限直接闪退回应用的现象，请手动到系统设置开启。<br>
                             2.可长按通知点击结束APP、点击关闭按钮或删除后台关闭桌宠。<br>
+                            3.如果遇到界面加载不完整,请重进刷新尝试。<br>
                             ⚠︎注:关闭是关闭应用，退出是退出网页，此权限只适用于应用端，网页端无法召唤桌宠
                         </div>
                     </div>
@@ -713,7 +712,7 @@
             let loadCompleted = false;
 
             // -------- Toast --------
-            function showToast(msg, emoji = '✨') {
+            function showToast(msg, emoji = '✯') {
                 toastMsg.textContent = msg;
                 toast.querySelector('.emoji').textContent = emoji;
                 toast.classList.add('show');
@@ -732,13 +731,13 @@
                         if (window.history.length > 1) {
                             window.history.back();
                         } else {
-                            showToast('当前页面无法关闭，请手动退出', '⚠️');
+                            showToast('当前页面无法关闭，请手动退出', '⚠︎');
                         }
                     }
                 } else if (window.history.length > 1) {
                     window.history.back();
                 } else {
-                    showToast('当前页面无法关闭，请手动退出', '⚠️');
+                    showToast('当前页面无法关闭，请手动退出', '⚠︎');
                 }
             });
 
@@ -747,12 +746,12 @@
                 if (window.Android && typeof window.Android.closePet === 'function') {
                     try {
                         window.Android.closePet();
-                        showToast('正在关闭桌宠…', '🐜');
+                        showToast('正在关闭桌宠…', '✦');
                     } catch (e) {
-                        showToast('关闭失败，请检查权限或通知栏', '⚠️');
+                        showToast('关闭失败，请检查权限或通知栏', '⚠︎');
                     }
                 } else {
-                    showToast('请使用桌宠应用或授予权限后关闭', '🐜');
+                    showToast('请使用桌宠应用或授予权限后关闭', '✦');
                 }
             });
 
@@ -782,7 +781,7 @@
                 clearInterval(progressInterval);
                 progressFill.style.width = '100%';
                 progressText.textContent = '100%';
-                loadingStatus.textContent = '加载完成 ✨';
+                loadingStatus.textContent = '加载完成 ✯';
 
                 setTimeout(() => {
                     overlay.classList.add('hidden');
@@ -797,7 +796,7 @@
             iframe.addEventListener('error', () => {
                 console.warn('iframe 加载失败，强制继续');
                 if (!loadCompleted) {
-                    loadingStatus.textContent = '加载完成 ✨';
+                    loadingStatus.textContent = '加载完成 ✯';
                     setTimeout(() => {
                         overlay.classList.add('hidden');
                         app.classList.add('show');
@@ -813,7 +812,7 @@
                     clearInterval(progressInterval);
                     progressFill.style.width = '100%';
                     progressText.textContent = '100%';
-                    loadingStatus.textContent = '加载完成 ✨';
+                    loadingStatus.textContent = '加载完成 ✯';
                     setTimeout(() => {
                         overlay.classList.add('hidden');
                         app.classList.add('show');
@@ -846,9 +845,9 @@
                     e.stopPropagation();
                     const perm = item.dataset.perm;
                     if (perm === 'overlay') {
-                        showToast('请前往系统设置开启「悬浮窗权限」', '🪟');
+                        showToast('请前往系统设置开启「悬浮窗权限」');
                     } else if (perm === 'notification') {
-                        showToast('请前往系统设置开启「通知权限」', '🔔');
+                        showToast('请前往系统设置开启「通知权限」');
                     }
                     permDropdown.classList.remove('open');
                     permArrow.classList.remove('open');
