@@ -14,13 +14,7 @@
             position: relative;
             touch-action: none;
         }
-        .forest-bg {
-            position: fixed; inset: 0;
-            background: radial-gradient(circle at 20% 80%, rgba(101,67,33,0.8) 0%, transparent 50%),
-                        radial-gradient(circle at 80% 20%, rgba(139,90,43,0.6) 0%, transparent 40%),
-                        radial-gradient(circle at 40% 40%, rgba(160,82,45,0.4) 0%, transparent 30%);
-            pointer-events: none; z-index: 0;
-        }
+        
         #loadingScreen {
             position: fixed; inset: 0;
             background: #2d1b0e;
@@ -399,9 +393,6 @@
         <div class="loader"></div>
         <div class="loading-text">🌿 昆虫世界加载中...</div>
     </div>
-
-    <div class="forest-bg"></div>
-    <h1 class="title">🐞 昆虫对决 <small>⚔️</small></h1>
 
     <button id="stopControlBtn">⏹ 停止操控</button>
 
