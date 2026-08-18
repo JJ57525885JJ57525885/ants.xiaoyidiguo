@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🐜 蚁后桌宠</title>
+    <title>桌宠主界面</title>
     <style>
         /* 全局重置 & 全屏 */
         * {
@@ -585,7 +585,7 @@
     <!-- ========== 加载遮罩 ========== -->
     <div id="loadingOverlay">
         <div class="loading-box">
-            <div class="loading-icon">🐜</div>
+            <div class="loading-icon">☕︎🐜</div>
             <div class="loading-title">桌宠界面 · 加载中</div>
             <div class="progress-track">
                 <div class="progress-fill" id="progressFill"></div>
@@ -607,7 +607,7 @@
         <!-- 头部 -->
         <div class="header">
             <div class="title">
-                <span class="emoji">✦</span>
+                <span class="emoji">✧</span>
                 <span class="ants"></span>
                 <span class="badge">主界面</span>
             </div>
@@ -640,7 +640,7 @@
                         <div class="dropdown-footer">
                             1.在系统设置中开启以上权限即可获得桌宠，如果出现点击给权限直接闪退回应用的现象，请手动到系统设置开启。<br>
                             2.可长按通知点击结束APP、点击关闭按钮或删除后台关闭桌宠。<br>
-                            3.如果遇到界面加载不完整,请重进刷新尝试。<br>
+                            3.如遇到界面加载不完整,请重进刷新尝试。<br>
                             ⚠︎注:关闭是关闭应用，退出是退出网页，此权限只适用于应用端，网页端无法召唤桌宠
                         </div>
                     </div>
@@ -662,7 +662,6 @@
         <button class="author-btn" id="authorBtn">
             <img src="1.png" alt="作者头像" id="authorImg">
             <span class="author-text">作者</span>
-            <span class="fallback-text">🐜</span>
         </button>
     </div>
 
@@ -712,7 +711,7 @@
             let loadCompleted = false;
 
             // -------- Toast --------
-            function showToast(msg, emoji = '✯') {
+            function showToast(msg, emoji = '✧') {
                 toastMsg.textContent = msg;
                 toast.querySelector('.emoji').textContent = emoji;
                 toast.classList.add('show');
@@ -746,12 +745,12 @@
                 if (window.Android && typeof window.Android.closePet === 'function') {
                     try {
                         window.Android.closePet();
-                        showToast('正在关闭桌宠…', '✦');
+                        showToast('正在关闭桌宠…', '✧');
                     } catch (e) {
                         showToast('关闭失败，请检查权限或通知栏', '⚠︎');
                     }
                 } else {
-                    showToast('请使用桌宠应用或授予权限后关闭', '✦');
+                    showToast('请使用桌宠应用或授予权限后关闭', '✧');
                 }
             });
 
@@ -781,7 +780,7 @@
                 clearInterval(progressInterval);
                 progressFill.style.width = '100%';
                 progressText.textContent = '100%';
-                loadingStatus.textContent = '加载完成 ✯';
+                loadingStatus.textContent = '加载完成 ✧';
 
                 setTimeout(() => {
                     overlay.classList.add('hidden');
@@ -796,7 +795,7 @@
             iframe.addEventListener('error', () => {
                 console.warn('iframe 加载失败，强制继续');
                 if (!loadCompleted) {
-                    loadingStatus.textContent = '加载完成 ✯';
+                    loadingStatus.textContent = '加载完成 ✧';
                     setTimeout(() => {
                         overlay.classList.add('hidden');
                         app.classList.add('show');
@@ -812,7 +811,7 @@
                     clearInterval(progressInterval);
                     progressFill.style.width = '100%';
                     progressText.textContent = '100%';
-                    loadingStatus.textContent = '加载完成 ✯';
+                    loadingStatus.textContent = '加载完成 ✧';
                     setTimeout(() => {
                         overlay.classList.add('hidden');
                         app.classList.add('show');
@@ -885,7 +884,7 @@
                 }
             });
 
-            console.log('🐜 蚁后桌宠 · iframe 版已启动（已移除视频及控制按钮）');
+            console.log('桌宠页面版已启动');
         })();
     </script>
 
