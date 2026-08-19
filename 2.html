@@ -14,7 +14,6 @@
             position: relative;
             touch-action: none;
         }
-        
         #loadingScreen {
             position: fixed; inset: 0;
             background: #2d1b0e;
@@ -506,8 +505,12 @@
         };
 
         const MAX_SUMMONED_ANTS = 10;
-        const SUMMON_COOLDOWN = 20000; // 20秒
-        const ANT_ATTACK_COOLDOWN = 1000; // 小蚂蚁攻击冷却
+        const SUMMON_COOLDOWN = 20000;
+        const ANT_ATTACK_COOLDOWN = 1500;
+        const MIN_DIST = 90;
+        const REVIVE_SECONDS = 20;
+        const MELEE_RANGE = 65;
+        const RANGED_RANGE = 350;
 
         const state = {
             insects: [],
@@ -522,16 +525,9 @@
             poisonCooldown: 0,
             poisonCooldownMax: 4000,
             lastPoisonTime: 0,
-            insectTypeEnabled: {} // 每种昆虫是否启用
+            insectTypeEnabled: {}
         };
-
-        // 初始化昆虫类型启用状态
         INSECT_DATA.forEach(d => state.insectTypeEnabled[d.name] = true);
-
-        const MIN_DIST = 90;
-        const REVIVE_SECONDS = 20;
-        const MELEE_RANGE = 65;
-        const RANGED_RANGE = 350;
 
         const $ = (s) => document.querySelector(s);
         const $$ = (s) => document.querySelectorAll(s);
@@ -636,11 +632,11 @@
                 attackCooldown: 0,
                 poisonReady: true,
                 poisonCooldownTimer: null,
-                summonCooldownUntil: 0, // 蚁后召唤冷却
-                active: true,          // 是否启用
-                isSummoned: false,     // 是否召唤物
-                summonerId: null,      // 召唤者ID
-                lastAttackTime: 0,     // 小蚂蚁自动攻击冷却
+                summonCooldownUntil: 0,
+                active: true,
+                isSummoned: false,
+                summonerId: null,
+                lastAttackTime: 0,
             };
 
             const div = document.createElement('div');
@@ -721,7 +717,6 @@
         // ============================================================
         function createSummonedAnt(summoner) {
             if (!summoner || !summoner.active || summoner.isDead) return null;
-            // 检查数量
             const count = state.insects.filter(i => i.isSummoned && i.summonerId === summoner.id).length;
             if (count >= MAX_SUMMONED_ANTS) {
                 showLog('🐜 小蚂蚁已达上限 (10只)', 1200);
@@ -730,7 +725,7 @@
 
             const others = state.insects.map(i => ({ x: i.x, y: i.y }));
             const pos = getUniquePosition(others, 40, 30);
-            const antSize = 32; // 小蚂蚁尺寸
+            const antSize = 32;
 
             const inst = {
                 id: state.nextId++,
@@ -738,7 +733,7 @@
                 file: '2.png',
                 x: pos.x, y: pos.y,
                 vx: rand(-0.5, 0.5), vy: rand(-0.5, 0.5),
-                size: 'small', // 仅用于标记，不使用SIZE_CONFIG
+                size: 'small',
                 baseHp: 50, baseAttack: 10,
                 hp: 50, maxHp: 50,
                 attack: 10,
@@ -800,9 +795,7 @@
             inst.hpFill = hpFill;
             inst.deadBadge = deadBadge;
             inst.reviveTimerEl = reviveTimerEl;
-
-            // 小蚂蚁不响应点击/长按，但需要保留样式
-            div.style.pointerEvents = 'none'; // 禁止交互
+            div.style.pointerEvents = 'none';
 
             state.insects.push(inst);
             showLog(`🐜 召唤了一只小蚂蚁！ (${count + 1}/${MAX_SUMMONED_ANTS})`, 1500);
@@ -841,7 +834,6 @@
                     stopControl();
                 }
                 if (!enabled && inst.name === '蚁后') {
-                    // 移除该蚁后的小蚂蚁
                     const ants = state.insects.filter(i => i.isSummoned && i.summonerId === inst.id);
                     for (const ant of ants) {
                         if (ant.reviveTimer) clearInterval(ant.reviveTimer);
@@ -849,7 +841,6 @@
                     }
                     state.insects = state.insects.filter(i => !(i.isSummoned && i.summonerId === inst.id));
                 }
-                // 如果昆虫死亡且被隐藏，清除复活计时器
                 if (!enabled && inst.isDead && inst.reviveTimer) {
                     clearInterval(inst.reviveTimer);
                     inst.reviveTimer = null;
@@ -978,7 +969,7 @@
         }
 
         // ============================================================
-        //  操控/停止操控 核心函数
+        //  操控/停止操控
         // ============================================================
         function stopControl() {
             if (state.controlledInsect) {
@@ -1065,36 +1056,41 @@
         }
 
         // ============================================================
-        //  战斗系统
+        //  战斗系统（修复反击 - 放宽距离限制）
         // ============================================================
         function startBattle(attacker, defender) {
-           // 蚁后不能攻击小蚂蚁
-           if (attacker.special === 'summon' && defender.isSummoned) {
-           showLog('🐜 蚁后不能攻击小蚂蚁', 1000);
-           deselectInsect();
-           return;
-        }
-    
+            if (attacker.special === 'summon' && defender.isSummoned) {
+                showLog('🐜 蚁后不能攻击小蚂蚁', 1000);
+                deselectInsect();
+                return;
+            }
             if (state.isFighting) return;
             if (!attacker.active || !defender.active || attacker.isDead || defender.isDead) { showLog('❌ 其中一方不可用', 1000); deselectInsect(); return; }
             if (!state.fightEnabled) { showLog('🔇 战斗已关闭', 800); deselectInsect(); return; }
-            performAttack(attacker, defender);
+            performAttack(attacker, defender, false);
         }
 
-        function performAttack(attacker, defender) {
+        function performAttack(attacker, defender, isCounter = false) {
+            // 蚁后不能攻击小蚂蚁
             if (attacker.special === 'summon' && defender.isSummoned) {
-            if (attacker.isPlayer) showLog('🐜 蚁后不能攻击小蚂蚁', 800);
-            return;
+                if (attacker.isPlayer) showLog('🐜 蚁后不能攻击小蚂蚁', 800);
+                return;
             }
 
+            if (!isCounter && state.isFighting) return;
             if (!state.fightEnabled) return;
             if (!attacker.active || !defender.active || attacker.isDead || defender.isDead) return;
+
             const d = dist(attacker, defender);
-            if (d > MELEE_RANGE) {
+            // 玩家攻击或反击时放宽距离限制（允许 1.5 倍近战范围）
+            const maxRange = (attacker.isPlayer || isCounter) ? MELEE_RANGE * 1.5 : MELEE_RANGE;
+            if (d > maxRange) {
                 if (attacker.isPlayer) showLog('📏 距离太远，请靠近', 800);
                 return;
             }
-            state.isFighting = true;
+
+            if (!isCounter) state.isFighting = true;
+
             attacker.element.classList.add('attacking');
             defender.element.classList.add('hit');
 
@@ -1115,15 +1111,16 @@
                 if (!defender.isPlayer) {
                     setTimeout(() => {
                         if (!defender.isDead && !attacker.isDead && state.fightEnabled) {
-                            performAttack(defender, attacker);
+                            performAttack(defender, attacker, true);
                         }
-                    }, 300);
+                    }, 500);
                 }
             }
+
             setTimeout(() => {
                 attacker.element.classList.remove('attacking');
                 defender.element.classList.remove('hit');
-                state.isFighting = false;
+                if (!isCounter) state.isFighting = false;
                 if (attacker.isDead || defender.isDead) deselectInsect();
             }, 800);
         }
@@ -1189,9 +1186,9 @@
                             if (!target.isPlayer) {
                                 setTimeout(() => {
                                     if (!target.isDead && !attacker.isDead && state.fightEnabled) {
-                                        performAttack(target, attacker);
+                                        performAttack(target, attacker, true);
                                     }
-                                }, 300);
+                                }, 500);
                             }
                         }
                     }
@@ -1269,15 +1266,16 @@
                             if (!target.isPlayer) {
                                 setTimeout(() => {
                                     if (!target.isDead && !attacker.isDead && state.fightEnabled) {
-                                        performAttack(target, attacker);
+                                        performAttack(target, attacker, true);
                                     }
-                                }, 300);
+                                }, 500);
                             }
                         }
                     }
                 }
             }
             animatePoison();
+
             const cooldownInterval = setInterval(() => {
                 updatePoisonCooldownUI();
                 if (Date.now() - state.lastPoisonTime >= state.poisonCooldownMax) {
@@ -1306,25 +1304,15 @@
             attacker.summonCooldownUntil = now + SUMMON_COOLDOWN;
             createSummonedAnt(attacker);
             updateSummonCooldownUI();
-            playSound(shootSound); // 使用射击音效作为召唤音效
+            playSound(shootSound);
         }
 
         // ============================================================
-        //  小蚂蚁自动攻击逻辑
+        //  小蚂蚁攻击（调用 performAttack）
         // ============================================================
         function performSummonedAntAttack(ant, target) {
             if (!state.fightEnabled || !ant.active || !target.active || ant.isDead || target.isDead) return;
-            const dmg = Math.round(ant.attack * (0.8 + Math.random() * 0.3));
-            target.hp = Math.max(0, target.hp - dmg);
-            showDamageNumber(target, dmg);
-            updateHpBar(target);
-            playSound(hitSound);
-            if (target.hp <= 0) {
-                target.hp = 0;
-                setDead(target);
-                playSound(dieSound);
-                showLog(`💀 ${target.name} 被小蚂蚁击杀！`, 2000);
-            }
+            performAttack(ant, target, false);
         }
 
         // ============================================================
@@ -1338,14 +1326,14 @@
             for (const inst of state.insects) {
                 if (!inst.active || inst.isDead) continue;
 
-                // 小蚂蚁自动攻击
+                // 小蚂蚁主动攻击
                 if (inst.isSummoned && state.fightEnabled) {
                     if (now - inst.lastAttackTime > ANT_ATTACK_COOLDOWN) {
                         let target = null;
                         let minDist = Infinity;
                         for (const other of state.insects) {
                             if (other.id === inst.id || other.isDead || !other.active || other.isSummoned) continue;
-                            if (other.id === inst.summonerId) continue; // 不攻击自己的召唤者
+                            if (other.id === inst.summonerId) continue;
                             const d = dist(inst, other);
                             if (d < 60 && d < minDist) {
                                 minDist = d;
@@ -1359,6 +1347,7 @@
                     }
                 }
 
+                // 玩家控制
                 if (inst.isPlayer) {
                     const jx = state.joystickDir.x;
                     const jy = state.joystickDir.y;
@@ -1375,6 +1364,7 @@
                     }
                 }
 
+                // 移动和边界碰撞
                 inst.x += inst.vx;
                 inst.y += inst.vy;
                 const half = parseInt(inst.element.style.width) / 2 || 20;
@@ -1383,6 +1373,7 @@
                 if (inst.y <= margin) { inst.y = margin; inst.vy *= -1; }
                 if (inst.y >= h - margin - half*2) { inst.y = h - margin - half*2; inst.vy *= -1; }
 
+                // 昆虫间排斥
                 for (const other of state.insects) {
                     if (other.id === inst.id || !other.active || other.isDead) continue;
                     const dx = inst.x - other.x;
@@ -1399,6 +1390,7 @@
                     }
                 }
 
+                // 速度限制
                 const speed = Math.sqrt(inst.vx*inst.vx + inst.vy*inst.vy);
                 const maxSpeed = inst.isPlayer ? 3.0 : (inst.isSummoned ? 1.8 : 2.5);
                 if (speed > maxSpeed) {
@@ -1514,7 +1506,7 @@
                     }
                 }
                 if (!target) { showLog('⚔️ 附近没有敌人', 1000); return; }
-                performAttack(inst, target);
+                performAttack(inst, target, false);
             });
             attackRemote.addEventListener('click', () => {
                 const inst = state.controlledInsect;
@@ -1580,7 +1572,6 @@
                 stopControl();
             }
             if (inst.isSummoned) {
-                // 小蚂蚁死亡后直接移除，不复活
                 if (inst.reviveTimer) clearInterval(inst.reviveTimer);
                 setTimeout(() => {
                     if (inst.element && inst.element.parentNode) inst.element.parentNode.removeChild(inst.element);
@@ -1688,7 +1679,6 @@
                 toggleControl(inst);
             });
 
-            // 列表按钮
             listBtn.addEventListener('click', openListModal);
             listClose.addEventListener('click', () => listModal.classList.remove('active'));
             listModal.addEventListener('click', (e) => { if (e.target === listModal) listModal.classList.remove('active'); });
@@ -1738,7 +1728,7 @@
             window.addEventListener('load', hideLoadingScreen);
 
             showLog('🌿 点击昆虫选中，长按修改属性并操控！蚁后可以召唤小蚂蚁！', 3000);
-            console.log('🐞 昆虫对决 · 操控版 · 蚁后召唤已启动！');
+            console.log('🐞 昆虫对决 · 反击修复版已启动！');
         }
 
         if (document.readyState === 'complete' || document.readyState === 'interactive') {
