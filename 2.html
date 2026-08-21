@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>昆虫对决 · 操控版 · 蚁后召唤</title>
+    <title>昆虫对决 · 自定义版</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-touch-callout: none; }
         body {
@@ -36,12 +36,40 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .loading-text { letter-spacing: 4px; text-shadow: 0 0 20px rgba(255,215,0,0.3); }
 
+        /* 标题区域 + 加号按钮 */
+        .header-area {
+            position: fixed; top: 14px; left: 0; right: 0;
+            display: flex; align-items: center; justify-content: center;
+            z-index: 100; pointer-events: none;
+            padding: 0 16px;
+        }
         .title {
-            position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
             color: #FFF8DC; font-size: 1.7em; text-shadow: 2px 2px 8px rgba(0,0,0,0.7);
-            z-index: 100; pointer-events: none; letter-spacing: 2px;
+            letter-spacing: 2px; pointer-events: none;
         }
         .title small { font-size: 0.5em; opacity: 0.8; }
+        .add-btn {
+            position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,248,220,0.6);
+            background: rgba(255,248,220,0.2);
+            color: #FFF8DC;
+            font-size: 28px;
+            font-weight: 300;
+            cursor: pointer;
+            pointer-events: auto;
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.2s;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+            z-index: 110;
+        }
+        .add-btn:hover { background: rgba(255,248,220,0.4); transform: translateY(-50%) scale(1.1); }
+        .add-btn:active { transform: translateY(-50%) scale(0.9); }
+        .add-btn.disabled { opacity: 0.4; pointer-events: none; }
 
         #stopControlBtn {
             position: fixed; top: 70px; left: 16px;
@@ -355,10 +383,70 @@
         }
         .ctrl-btn.disabled { opacity: 0.4; pointer-events: none; }
 
+        /* ===== 列表左滑删除 ===== */
+        .list-item-wrap {
+            position: relative;
+            overflow: hidden;
+            touch-action: pan-y;
+        }
+        .list-item-wrap .list-row {
+            position: relative;
+            z-index: 2;
+            background: #f5efe6;
+            transition: transform 0.25s ease;
+            will-change: transform;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.06);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .list-item-wrap .list-row .label {
+            font-weight: 600;
+            color: #4E342E;
+            font-size: 16px;
+            flex: 1;
+            padding: 0 12px;
+        }
+        .list-item-wrap .list-row .toggle-switch {
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+        .list-item-wrap .delete-btn {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 80px;
+            background: #e53935;
+            color: #fff;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            z-index: 1;
+            border-radius: 0 8px 8px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.2s;
+        }
+        .list-item-wrap .delete-btn:active { background: #b71c1c; }
+        .list-item-wrap .custom-tag {
+            font-size: 11px;
+            background: #7c5cfc;
+            color: #fff;
+            padding: 2px 10px;
+            border-radius: 12px;
+            margin-left: 8px;
+            flex-shrink: 0;
+        }
+
         .list-row .toggle-switch { margin-left: 10px; }
 
         @media (max-width: 600px) {
-            .title { font-size: 1.2em; top: 10px; }
+            .title { font-size: 1.2em; }
+            .add-btn { width: 34px; height: 34px; font-size: 22px; left: 10px; }
             .settings-btn, .list-btn { width: 38px; height: 38px; font-size: 18px; }
             .list-btn { right: 56px; }
             .settings-btn { right: 12px; }
@@ -375,6 +463,7 @@
             #joystick-knob { width: 42px; height: 42px; }
             .ctrl-btn { width: 60px; height: 60px; font-size: 12px; }
             #controls { padding: 0 10px; bottom: 20px; }
+            .header-area { top: 10px; }
         }
         @media (max-width: 400px) {
             .modal-panel { padding: 18px 14px; }
@@ -384,6 +473,7 @@
             #joystick-knob { width: 36px; height: 36px; }
             .ctrl-btn { width: 50px; height: 50px; font-size: 11px; }
             #stopControlBtn { top: 55px; font-size: 11px; padding: 3px 10px; }
+            .add-btn { width: 30px; height: 30px; font-size: 18px; left: 8px; }
         }
     </style>
 </head>
@@ -391,6 +481,12 @@
     <div id="loadingScreen">
         <div class="loader"></div>
         <div class="loading-text">🌿 昆虫世界加载中...</div>
+    </div>
+
+    <!-- ===== 标题 + 加号按钮 ===== -->
+    <div class="header-area">
+        <button class="add-btn" id="addBtn" title="上传自定义昆虫 (最多5只)">+</button>
+        <div class="title">🐞 昆虫对决 <small>⚔️</small></div>
     </div>
 
     <button id="stopControlBtn">⏹ 停止操控</button>
@@ -457,7 +553,7 @@
         <div class="modal-panel">
             <button class="modal-close" id="listClose">✕</button>
             <h2>📋 昆虫列表</h2>
-            <div class="sub">管理昆虫的显示与隐藏</div>
+            <div class="sub">管理昆虫的显示与隐藏 · 自定义昆虫可左滑删除</div>
             <div id="listContainer"></div>
             <div class="modal-footer" style="justify-content: space-between;">
                 <button class="btn-secondary" id="listAllOff">全部关闭</button>
@@ -470,6 +566,9 @@
     <audio id="hitSound" preload="auto"><source src="2.mp3" type="audio/mpeg"></audio>
     <audio id="dieSound" preload="auto"><source src="2.mp3" type="audio/mpeg"></audio>
     <audio id="shootSound" preload="auto"><source src="2.mp3" type="audio/mpeg"></audio>
+
+    <!-- 隐藏的文件上传 input -->
+    <input type="file" id="fileInput" accept="image/*" style="display:none;">
 
     <div id="controls">
         <div id="joystick-area">
@@ -487,7 +586,8 @@
         // ============================================================
         //  数据
         // ============================================================
-        const INSECT_DATA = [
+        // 预设昆虫数据
+        const PRESET_INSECT_DATA = [
             { name: '独角仙', file: '1.gif', baseHp: 150, baseAttack: 20, special: 'none' },
             { name: '螳螂', file: '2.gif', baseHp: 100, baseAttack: 28, special: 'none' },
             { name: '蝎子', file: '3.gif', baseHp: 130, baseAttack: 22, special: 'poison' },
@@ -497,6 +597,11 @@
             { name: '竹节虫', file: '7.gif', baseHp: 110, baseAttack: 14, special: 'none' },
             { name: '蚁后', file: '8.gif', baseHp: 200, baseAttack: 25, special: 'summon' }
         ];
+
+        // INSECT_DATA 将包含预设 + 自定义
+        let INSECT_DATA = [...PRESET_INSECT_DATA];
+        // 自定义昆虫数据（只存元数据，实际昆虫实例在 state.insects 中）
+        let customMetaList = []; // { name, file, baseHp, baseAttack, special, isCustom: true, id: 唯一标识 }
 
         const SIZE_CONFIG = {
             small: { scale: 0.7, hpMult: 0.7, atkMult: 0.8, size: 56, label: '小' },
@@ -511,6 +616,7 @@
         const REVIVE_SECONDS = 20;
         const MELEE_RANGE = 65;
         const RANGED_RANGE = 350;
+        const MAX_CUSTOM_INSECTS = 5;
 
         const state = {
             insects: [],
@@ -525,9 +631,12 @@
             poisonCooldown: 0,
             poisonCooldownMax: 4000,
             lastPoisonTime: 0,
-            insectTypeEnabled: {}
+            insectTypeEnabled: {},
+            customCounter: 0, // 用于"未命名"自动编号
+            customIdCounter: 0,
         };
-        INSECT_DATA.forEach(d => state.insectTypeEnabled[d.name] = true);
+        // 初始化启用状态
+        PRESET_INSECT_DATA.forEach(d => state.insectTypeEnabled[d.name] = true);
 
         const $ = (s) => document.querySelector(s);
         const $$ = (s) => document.querySelectorAll(s);
@@ -569,7 +678,12 @@
         const listContainer = $('#listContainer');
         const listAllOff = $('#listAllOff');
         const listAllOn = $('#listAllOn');
+        const addBtn = $('#addBtn');
+        const fileInput = $('#fileInput');
 
+        // ============================================================
+        //  工具函数
+        // ============================================================
         function rand(min, max) { return min + Math.random() * (max - min); }
         function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
         function dist(a, b) { return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2); }
@@ -601,7 +715,7 @@
         }
 
         // ============================================================
-        //  创建普通昆虫
+        //  创建昆虫（预设 + 自定义通用）
         // ============================================================
         function createInsect(data, index) {
             const others = state.insects.map(i => ({ x: i.x, y: i.y }));
@@ -637,6 +751,8 @@
                 isSummoned: false,
                 summonerId: null,
                 lastAttackTime: 0,
+                isCustom: data.isCustom || false,
+                customId: data.customId || null,
             };
 
             const div = document.createElement('div');
@@ -677,6 +793,7 @@
             inst.deadBadge = deadBadge;
             inst.reviveTimerEl = reviveTimerEl;
 
+            // 事件绑定
             let pressTimer = null, isLongPress = false, pressStartX = 0, pressStartY = 0;
             const startPress = (e) => {
                 if (!inst.active || inst.isSummoned) return;
@@ -713,7 +830,7 @@
         }
 
         // ============================================================
-        //  创建小蚂蚁（召唤物）
+        //  创建小蚂蚁（召唤物）- 使用 小蚂蚁.gif
         // ============================================================
         function createSummonedAnt(summoner) {
             if (!summoner || !summoner.active || summoner.isDead) return null;
@@ -730,7 +847,7 @@
             const inst = {
                 id: state.nextId++,
                 name: '小蚂蚁',
-                file: '2.png',
+                file: '小蚂蚁.gif', // 改为 gif
                 x: pos.x, y: pos.y,
                 vx: rand(-0.5, 0.5), vy: rand(-0.5, 0.5),
                 size: 'small',
@@ -752,6 +869,8 @@
                 isSummoned: true,
                 summonerId: summoner.id,
                 lastAttackTime: 0,
+                isCustom: false,
+                customId: null,
             };
 
             const div = document.createElement('div');
@@ -803,6 +922,261 @@
         }
 
         // ============================================================
+        //  自定义昆虫上传
+        // ============================================================
+        function getNextCustomName(baseName) {
+            const existing = customMetaList.map(m => m.name);
+            if (!existing.includes(baseName)) return baseName;
+            let i = 1;
+            while (existing.includes(baseName + i)) i++;
+            return baseName + i;
+        }
+
+        function handleFileUpload(file) {
+            if (customMetaList.length >= MAX_CUSTOM_INSECTS) {
+                showLog(`⚠️ 最多上传 ${MAX_CUSTOM_INSECTS} 只自定义昆虫`, 2000);
+                return;
+            }
+            if (!file.type.startsWith('image/')) {
+                showLog('⚠️ 请上传图片文件', 1500);
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const dataUrl = e.target.result;
+                // 弹出命名对话框
+                const defaultName = '未命名';
+                const uniqueName = getNextCustomName(defaultName);
+                const userInput = prompt('给这只昆虫起个名字（留空则自动命名）:', uniqueName);
+                let finalName = (userInput && userInput.trim()) ? userInput.trim() : uniqueName;
+                // 如果名字已存在，自动加编号
+                const existingNames = customMetaList.map(m => m.name);
+                if (existingNames.includes(finalName)) {
+                    let i = 1;
+                    while (existingNames.includes(finalName + i)) i++;
+                    finalName = finalName + i;
+                }
+
+                // 创建自定义元数据
+                const customData = {
+                    name: finalName,
+                    file: dataUrl,
+                    baseHp: 100,
+                    baseAttack: 15,
+                    special: 'none',
+                    isCustom: true,
+                    customId: ++state.customIdCounter,
+                };
+                customMetaList.push(customData);
+
+                // 添加到 INSECT_DATA
+                INSECT_DATA.push(customData);
+                state.insectTypeEnabled[finalName] = true;
+
+                // 创建昆虫实例
+                const inst = createInsect(customData, INSECT_DATA.length - 1);
+                // 标记为自定义
+                inst.isCustom = true;
+                inst.customId = customData.customId;
+
+                // 更新列表
+                if (listModal.classList.contains('active')) renderListModal();
+
+                showLog(`✅ 已添加自定义昆虫: ${finalName} (${customMetaList.length}/${MAX_CUSTOM_INSECTS})`, 2000);
+                updateAddBtnState();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function updateAddBtnState() {
+            if (customMetaList.length >= MAX_CUSTOM_INSECTS) {
+                addBtn.classList.add('disabled');
+                addBtn.title = `已达上限 (${MAX_CUSTOM_INSECTS}只)`;
+            } else {
+                addBtn.classList.remove('disabled');
+                addBtn.title = `上传自定义昆虫 (${customMetaList.length}/${MAX_CUSTOM_INSECTS})`;
+            }
+        }
+
+        // ============================================================
+        //  删除自定义昆虫（只能删除自定义的）
+        // ============================================================
+        function deleteCustomInsect(customId) {
+            // 从 customMetaList 中移除
+            const idx = customMetaList.findIndex(m => m.customId === customId);
+            if (idx === -1) return false;
+            const meta = customMetaList[idx];
+            const name = meta.name;
+
+            // 从 INSECT_DATA 中移除
+            const dataIdx = INSECT_DATA.findIndex(d => d.isCustom && d.customId === customId);
+            if (dataIdx !== -1) INSECT_DATA.splice(dataIdx, 1);
+
+            // 从 state.insectTypeEnabled 中移除
+            delete state.insectTypeEnabled[name];
+
+            // 查找并移除对应的昆虫实例
+            const toRemove = state.insects.filter(i => i.isCustom && i.customId === customId);
+            for (const inst of toRemove) {
+                if (inst.reviveTimer) clearInterval(inst.reviveTimer);
+                if (inst.element && inst.element.parentNode) {
+                    inst.element.parentNode.removeChild(inst.element);
+                }
+                // 如果当前选中的是这个昆虫，取消选中
+                if (state.selectedId === inst.id) state.selectedId = null;
+                if (state.controlledInsect && state.controlledInsect.id === inst.id) {
+                    stopControl();
+                }
+            }
+            state.insects = state.insects.filter(i => !(i.isCustom && i.customId === customId));
+
+            customMetaList.splice(idx, 1);
+            updateAddBtnState();
+
+            // 更新列表
+            if (listModal.classList.contains('active')) renderListModal();
+            showLog(`🗑️ 已删除自定义昆虫: ${name}`, 1500);
+            return true;
+        }
+
+        // ============================================================
+        //  列表模态框（支持左滑删除）
+        // ============================================================
+        function renderListModal() {
+            listContainer.innerHTML = '';
+            // 先渲染预设
+            for (const data of PRESET_INSECT_DATA) {
+                const wrap = document.createElement('div');
+                wrap.className = 'list-item-wrap';
+                const row = document.createElement('div');
+                row.className = 'list-row';
+                const label = document.createElement('span');
+                label.className = 'label';
+                label.textContent = data.name;
+                const toggle = document.createElement('div');
+                toggle.className = 'toggle-switch' + (state.insectTypeEnabled[data.name] ? ' active' : '');
+                toggle.innerHTML = '<div class="knob"></div>';
+                toggle.addEventListener('click', () => {
+                    const newState = !state.insectTypeEnabled[data.name];
+                    state.insectTypeEnabled[data.name] = newState;
+                    toggle.classList.toggle('active', newState);
+                    updateInsectVisibility();
+                    if (!newState) showLog(`🚫 ${data.name} 已关闭`, 1000);
+                    else showLog(`✅ ${data.name} 已开启`, 1000);
+                });
+                row.appendChild(label);
+                row.appendChild(toggle);
+                wrap.appendChild(row);
+                listContainer.appendChild(wrap);
+            }
+
+            // 渲染自定义
+            for (const meta of customMetaList) {
+                const wrap = document.createElement('div');
+                wrap.className = 'list-item-wrap';
+                wrap.dataset.customId = meta.customId;
+
+                const row = document.createElement('div');
+                row.className = 'list-row';
+                const label = document.createElement('span');
+                label.className = 'label';
+                label.textContent = meta.name;
+                const tag = document.createElement('span');
+                tag.className = 'custom-tag';
+                tag.textContent = '自定义';
+                label.appendChild(tag);
+
+                const toggle = document.createElement('div');
+                toggle.className = 'toggle-switch' + (state.insectTypeEnabled[meta.name] ? ' active' : '');
+                toggle.innerHTML = '<div class="knob"></div>';
+                toggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const newState = !state.insectTypeEnabled[meta.name];
+                    state.insectTypeEnabled[meta.name] = newState;
+                    toggle.classList.toggle('active', newState);
+                    updateInsectVisibility();
+                    if (!newState) showLog(`🚫 ${meta.name} 已关闭`, 1000);
+                    else showLog(`✅ ${meta.name} 已开启`, 1000);
+                });
+
+                // 删除按钮
+                const delBtn = document.createElement('button');
+                delBtn.className = 'delete-btn';
+                delBtn.textContent = '删除';
+                delBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (confirm(`确定要删除 "${meta.name}" 吗？`)) {
+                        deleteCustomInsect(meta.customId);
+                    }
+                });
+
+                row.appendChild(label);
+                row.appendChild(toggle);
+                wrap.appendChild(row);
+                wrap.appendChild(delBtn);
+                listContainer.appendChild(wrap);
+
+                // ===== 左滑删除手势 =====
+                let startX = 0, startY = 0, isSwiping = false, currentX = 0;
+                const rowEl = row;
+                const wrapEl = wrap;
+
+                const onTouchStart = (e) => {
+                    const touch = e.touches[0];
+                    startX = touch.clientX;
+                    startY = touch.clientY;
+                    isSwiping = false;
+                    currentX = 0;
+                    rowEl.style.transition = 'none';
+                };
+                const onTouchMove = (e) => {
+                    const touch = e.touches[0];
+                    const dx = touch.clientX - startX;
+                    const dy = touch.clientY - startY;
+                    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+                        isSwiping = true;
+                        e.preventDefault();
+                    }
+                    if (isSwiping && Math.abs(dx) > 10) {
+                        const maxSwipe = -80;
+                        const newX = Math.max(maxSwipe, Math.min(0, dx));
+                        currentX = newX;
+                        rowEl.style.transform = `translateX(${newX}px)`;
+                    }
+                };
+                const onTouchEnd = (e) => {
+                    rowEl.style.transition = 'transform 0.25s ease';
+                    if (currentX < -40) {
+                        // 展开删除按钮
+                        rowEl.style.transform = 'translateX(-80px)';
+                        currentX = -80;
+                    } else {
+                        rowEl.style.transform = 'translateX(0)';
+                        currentX = 0;
+                    }
+                    isSwiping = false;
+                };
+
+                wrapEl.addEventListener('touchstart', onTouchStart, { passive: true });
+                wrapEl.addEventListener('touchmove', onTouchMove, { passive: false });
+                wrapEl.addEventListener('touchend', onTouchEnd, { passive: true });
+                wrapEl.addEventListener('touchcancel', onTouchEnd, { passive: true });
+
+                // 点击其他地方收起
+                document.addEventListener('click', (e) => {
+                    if (!wrapEl.contains(e.target)) {
+                        if (currentX < -40) {
+                            rowEl.style.transition = 'transform 0.25s ease';
+                            rowEl.style.transform = 'translateX(0)';
+                            currentX = 0;
+                        }
+                    }
+                });
+            }
+        }
+
+        // ============================================================
         //  移除所有召唤物
         // ============================================================
         function removeAllSummonedAnts() {
@@ -848,41 +1222,13 @@
             }
         }
 
-        // ============================================================
-        //  列表模态框逻辑
-        // ============================================================
-        function renderListModal() {
-            listContainer.innerHTML = '';
-            for (const data of INSECT_DATA) {
-                const row = document.createElement('div');
-                row.className = 'list-row';
-                const label = document.createElement('span');
-                label.className = 'label';
-                label.textContent = data.name;
-                const toggle = document.createElement('div');
-                toggle.className = 'toggle-switch' + (state.insectTypeEnabled[data.name] ? ' active' : '');
-                toggle.innerHTML = '<div class="knob"></div>';
-                toggle.addEventListener('click', () => {
-                    const newState = !state.insectTypeEnabled[data.name];
-                    state.insectTypeEnabled[data.name] = newState;
-                    toggle.classList.toggle('active', newState);
-                    updateInsectVisibility();
-                    if (!newState) showLog(`🚫 ${data.name} 已关闭`, 1000);
-                    else showLog(`✅ ${data.name} 已开启`, 1000);
-                });
-                row.appendChild(label);
-                row.appendChild(toggle);
-                listContainer.appendChild(row);
-            }
-        }
-
         function openListModal() {
             renderListModal();
             listModal.classList.add('active');
         }
 
         // ============================================================
-        //  点击/长按处理
+        //  点击/长按处理（不变）
         // ============================================================
         function handleClick(inst, event) {
             if (!inst.active || inst.isSummoned) return;
@@ -1056,7 +1402,7 @@
         }
 
         // ============================================================
-        //  战斗系统（修复反击 - 放宽距离限制）
+        //  战斗系统
         // ============================================================
         function startBattle(attacker, defender) {
             if (attacker.special === 'summon' && defender.isSummoned) {
@@ -1071,18 +1417,15 @@
         }
 
         function performAttack(attacker, defender, isCounter = false) {
-            // 蚁后不能攻击小蚂蚁
             if (attacker.special === 'summon' && defender.isSummoned) {
                 if (attacker.isPlayer) showLog('🐜 蚁后不能攻击小蚂蚁', 800);
                 return;
             }
-
             if (!isCounter && state.isFighting) return;
             if (!state.fightEnabled) return;
             if (!attacker.active || !defender.active || attacker.isDead || defender.isDead) return;
 
             const d = dist(attacker, defender);
-            // 玩家攻击或反击时放宽距离限制（允许 1.5 倍近战范围）
             const maxRange = (attacker.isPlayer || isCounter) ? MELEE_RANGE * 1.5 : MELEE_RANGE;
             if (d > maxRange) {
                 if (attacker.isPlayer) showLog('📏 距离太远，请靠近', 800);
@@ -1284,9 +1627,6 @@
             }, 200);
         }
 
-        // ============================================================
-        //  召唤技能
-        // ============================================================
         function performSummon(attacker) {
             if (!attacker.isPlayer || !attacker.active) return;
             if (attacker.isDead) { showLog('💀 已死亡', 800); return; }
@@ -1307,9 +1647,6 @@
             playSound(shootSound);
         }
 
-        // ============================================================
-        //  小蚂蚁攻击（调用 performAttack）
-        // ============================================================
         function performSummonedAntAttack(ant, target) {
             if (!state.fightEnabled || !ant.active || !target.active || ant.isDead || target.isDead) return;
             performAttack(ant, target, false);
@@ -1326,7 +1663,6 @@
             for (const inst of state.insects) {
                 if (!inst.active || inst.isDead) continue;
 
-                // 小蚂蚁主动攻击
                 if (inst.isSummoned && state.fightEnabled) {
                     if (now - inst.lastAttackTime > ANT_ATTACK_COOLDOWN) {
                         let target = null;
@@ -1347,7 +1683,6 @@
                     }
                 }
 
-                // 玩家控制
                 if (inst.isPlayer) {
                     const jx = state.joystickDir.x;
                     const jy = state.joystickDir.y;
@@ -1364,7 +1699,6 @@
                     }
                 }
 
-                // 移动和边界碰撞
                 inst.x += inst.vx;
                 inst.y += inst.vy;
                 const half = parseInt(inst.element.style.width) / 2 || 20;
@@ -1373,7 +1707,6 @@
                 if (inst.y <= margin) { inst.y = margin; inst.vy *= -1; }
                 if (inst.y >= h - margin - half*2) { inst.y = h - margin - half*2; inst.vy *= -1; }
 
-                // 昆虫间排斥
                 for (const other of state.insects) {
                     if (other.id === inst.id || !other.active || other.isDead) continue;
                     const dx = inst.x - other.x;
@@ -1390,7 +1723,6 @@
                     }
                 }
 
-                // 速度限制
                 const speed = Math.sqrt(inst.vx*inst.vx + inst.vy*inst.vy);
                 const maxSpeed = inst.isPlayer ? 3.0 : (inst.isSummoned ? 1.8 : 2.5);
                 if (speed > maxSpeed) {
@@ -1410,7 +1742,6 @@
                 inst.element.style.top = inst.y + 'px';
             }
 
-            // 更新召唤冷却UI
             if (state.controlledInsect && state.controlledInsect.special === 'summon') {
                 updateSummonCooldownUI();
             }
@@ -1418,6 +1749,9 @@
             requestAnimationFrame(updatePositions);
         }
 
+        // ============================================================
+        //  摇杆
+        // ============================================================
         function setupJoystick() {
             let active = false;
             let touchId = null;
@@ -1490,6 +1824,9 @@
             document.addEventListener('touchcancel', handleEnd, { passive: false });
         }
 
+        // ============================================================
+        //  攻击按钮
+        // ============================================================
         function setupAttackButtons() {
             attackMelee.addEventListener('click', () => {
                 const inst = state.controlledInsect;
@@ -1528,6 +1865,9 @@
             });
         }
 
+        // ============================================================
+        //  辅助函数
+        // ============================================================
         function toggleFight(enabled) {
             state.fightEnabled = enabled;
             fightToggle.classList.toggle('active', enabled);
@@ -1639,12 +1979,30 @@
         function init() {
             hideLoadingScreen();
 
+            // 创建预设昆虫
             INSECT_DATA.forEach((data, idx) => {
                 setTimeout(() => createInsect(data, idx), idx * 180);
             });
             setTimeout(updatePositions, 1200);
             setupJoystick();
             setupAttackButtons();
+            updateAddBtnState();
+
+            // 加号按钮 - 上传图片
+            addBtn.addEventListener('click', () => {
+                if (customMetaList.length >= MAX_CUSTOM_INSECTS) {
+                    showLog(`⚠️ 最多上传 ${MAX_CUSTOM_INSECTS} 只自定义昆虫`, 2000);
+                    return;
+                }
+                fileInput.click();
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                    handleFileUpload(e.target.files[0]);
+                }
+                fileInput.value = '';
+            });
 
             stopControlBtn.addEventListener('click', stopControl);
 
@@ -1720,15 +2078,15 @@
             });
 
             document.addEventListener('click', (e) => {
-                if (!e.target.closest('.insect') && !e.target.closest('.modal-overlay') && !e.target.closest('.settings-btn') && !e.target.closest('.list-btn') && !e.target.closest('#controls') && !e.target.closest('#stopControlBtn')) {
+                if (!e.target.closest('.insect') && !e.target.closest('.modal-overlay') && !e.target.closest('.settings-btn') && !e.target.closest('.list-btn') && !e.target.closest('#controls') && !e.target.closest('#stopControlBtn') && !e.target.closest('.add-btn')) {
                     deselectInsect();
                 }
             });
 
             window.addEventListener('load', hideLoadingScreen);
 
-            showLog('🌿 点击昆虫选中，长按修改属性并操控！蚁后可以召唤小蚂蚁！', 3000);
-            console.log('🐞 昆虫对决 · 反击修复版已启动！');
+            showLog('🌿 + 号上传自定义昆虫 · 长按修改属性 · 蚁后召唤小蚂蚁', 3000);
+            console.log('🐞 昆虫对决 · 自定义版已启动！');
         }
 
         if (document.readyState === 'complete' || document.readyState === 'interactive') {
